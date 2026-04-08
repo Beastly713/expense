@@ -53,3 +53,9 @@ export interface NetBalanceRow {
   membershipId: string;
   netBalanceMinor: number;
 }
+
+export interface SimplifiedDebtRow {
+  fromMembershipId: string;
+  toMembershipId: string;
+  amountMinor: number;
+}
