@@ -7,10 +7,12 @@ import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
 import mailConfig from './config/mail.config';
 import { DatabaseModule } from './database/database.module';
+import { ExpensesModule } from './modules/expenses/expenses.module';
 import { GroupsModule } from './modules/groups/groups.module';
 import { HealthModule } from './modules/health/health.module';
 import { InvitationsModule } from './modules/invitations/invitations.module';
 import { MembershipsModule } from './modules/memberships/memberships.module';
+import { SettlementsModule } from './modules/settlements/settlements.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -26,6 +28,8 @@ import { UsersModule } from './modules/users/users.module';
     GroupsModule,
     InvitationsModule,
     MembershipsModule,
+    ExpensesModule,
+    SettlementsModule,
     HealthModule,
   ],
 })
