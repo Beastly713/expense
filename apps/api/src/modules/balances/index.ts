@@ -1,4 +1,5 @@
 export * from './apply-settlements';
+export * from './group-balance-engine';
 export * from './member-removal-validator';
 export * from './net-balance-calculator';
 export * from './pairwise-normalizer';

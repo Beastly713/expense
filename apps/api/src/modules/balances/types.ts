@@ -59,3 +59,18 @@ export interface SimplifiedDebtRow {
   toMembershipId: string;
   amountMinor: number;
 }
+
+export interface GroupBalanceSnapshotInput {
+  membershipIds: readonly string[];
+  expenses: readonly RawDebtBuilderExpenseInput[];
+  splits: readonly RawDebtBuilderSplitInput[];
+  settlements: readonly SettlementInput[];
+}
+
+export interface GroupBalanceSnapshot {
+  rawDebtEdges: RawDebtEdge[];
+  settledDebtEdges: RawDebtEdge[];
+  normalizedDebtEdges: NormalizedDebtEdge[];
+  netBalances: NetBalanceRow[];
+  simplifiedDebts: SimplifiedDebtRow[];
+}
