@@ -40,3 +40,9 @@ export interface RawDebtEdge {
   toMembershipId: string;
   amountMinor: number;
 }
+
+export interface SettlementInput {
+  fromMembershipId: string;
+  toMembershipId: string;
+  amountMinor: number;
+}
