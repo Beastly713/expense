@@ -7,7 +7,9 @@
     "build": "nest build",
     "start": "node dist/main.js",
     "lint": "eslint \"src/**/*.ts\"",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:seed": "ts-node -r tsconfig-paths/register src/database/migrations-or-seeds/seed.ts",
+    "db:verify-phase2": "ts-node -r tsconfig-paths/register src/database/migrations-or-seeds/verify-phase2.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",
