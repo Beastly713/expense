@@ -7,7 +7,11 @@ import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
 import mailConfig from './config/mail.config';
 import { DatabaseModule } from './database/database.module';
+import { GroupsModule } from './modules/groups/groups.module';
 import { HealthModule } from './modules/health/health.module';
+import { InvitationsModule } from './modules/invitations/invitations.module';
+import { MembershipsModule } from './modules/memberships/memberships.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -18,6 +22,10 @@ import { HealthModule } from './modules/health/health.module';
       validate: validateEnv,
     }),
     DatabaseModule,
+    UsersModule,
+    GroupsModule,
+    InvitationsModule,
+    MembershipsModule,
     HealthModule,
   ],
 })
