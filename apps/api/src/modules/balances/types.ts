@@ -41,8 +41,15 @@ export interface RawDebtEdge {
   amountMinor: number;
 }
 
+export type NormalizedDebtEdge = RawDebtEdge;
+
 export interface SettlementInput {
   fromMembershipId: string;
   toMembershipId: string;
   amountMinor: number;
+}
+
+export interface NetBalanceRow {
+  membershipId: string;
+  netBalanceMinor: number;
 }
