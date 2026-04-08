@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 
 import { Settlement, SettlementSchema } from './settlement.schema';
+import { SettlementsRepository } from './settlements.repository';
 
 @Module({
   imports: [
@@ -9,6 +10,7 @@ import { Settlement, SettlementSchema } from './settlement.schema';
       { name: Settlement.name, schema: SettlementSchema },
     ]),
   ],
-  exports: [MongooseModule],
+  providers: [SettlementsRepository],
+  exports: [MongooseModule, SettlementsRepository],
 })
 export class SettlementsModule {}

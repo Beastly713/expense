@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 
 import { Membership, MembershipSchema } from './membership.schema';
+import { MembershipsRepository } from './memberships.repository';
 
 @Module({
   imports: [
@@ -9,6 +10,7 @@ import { Membership, MembershipSchema } from './membership.schema';
       { name: Membership.name, schema: MembershipSchema },
     ]),
   ],
-  exports: [MongooseModule],
+  providers: [MembershipsRepository],
+  exports: [MongooseModule, MembershipsRepository],
 })
 export class MembershipsModule {}

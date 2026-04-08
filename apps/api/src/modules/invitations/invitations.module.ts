@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 
 import { Invitation, InvitationSchema } from './invitation.schema';
+import { InvitationsRepository } from './invitations.repository';
 
 @Module({
   imports: [
@@ -9,6 +10,7 @@ import { Invitation, InvitationSchema } from './invitation.schema';
       { name: Invitation.name, schema: InvitationSchema },
     ]),
   ],
-  exports: [MongooseModule],
+  providers: [InvitationsRepository],
+  exports: [MongooseModule, InvitationsRepository],
 })
 export class InvitationsModule {}

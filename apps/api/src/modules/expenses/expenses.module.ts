@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 
 import { Expense, ExpenseSchema } from './expense.schema';
+import { ExpensesRepository } from './expenses.repository';
 import { Split, SplitSchema } from './split.schema';
+import { SplitsRepository } from './splits.repository';
 
 @Module({
   imports: [
@@ -11,6 +13,7 @@ import { Split, SplitSchema } from './split.schema';
       { name: Split.name, schema: SplitSchema },
     ]),
   ],
-  exports: [MongooseModule],
+  providers: [ExpensesRepository, SplitsRepository],
+  exports: [MongooseModule, ExpensesRepository, SplitsRepository],
 })
 export class ExpensesModule {}
