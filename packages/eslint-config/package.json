@@ -1,0 +1,9 @@
+{
+  "name": "@splitwise/eslint-config",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./base.mjs"
+  }
+}
