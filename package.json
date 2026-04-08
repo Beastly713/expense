@@ -3,11 +3,16 @@
   "private": true,
   "version": "0.0.0",
   "packageManager": "pnpm@10.6.0",
-  "scripts": {
+   "scripts": {
+    "dev": "concurrently \"pnpm dev:web\" \"pnpm dev:api\"",
     "dev:web": "pnpm --filter @splitwise/web dev",
+    "dev:api": "pnpm --filter @splitwise/api dev",
     "build:web": "pnpm --filter @splitwise/web build",
+    "build:api": "pnpm --filter @splitwise/api build",
     "lint:web": "pnpm --filter @splitwise/web lint",
+    "lint:api": "pnpm --filter @splitwise/api lint",
     "typecheck:web": "pnpm --filter @splitwise/web typecheck",
+    "typecheck:api": "pnpm --filter @splitwise/api typecheck",
     "lint": "pnpm -r --if-present lint",
     "typecheck": "pnpm -r --if-present typecheck",
     "format": "prettier . --write",
@@ -22,6 +27,7 @@
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-unused-imports": "^4.1.4",
     "prettier": "^3.5.3",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "concurrently": "^9.2.1"
   }
 }
