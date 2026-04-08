@@ -4,6 +4,10 @@
   "version": "0.0.0",
   "packageManager": "pnpm@10.6.0",
   "scripts": {
+    "dev:web": "pnpm --filter @splitwise/web dev",
+    "build:web": "pnpm --filter @splitwise/web build",
+    "lint:web": "pnpm --filter @splitwise/web lint",
+    "typecheck:web": "pnpm --filter @splitwise/web typecheck",
     "lint": "pnpm -r --if-present lint",
     "typecheck": "pnpm -r --if-present typecheck",
     "format": "prettier . --write",
