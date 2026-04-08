@@ -7,12 +7,29 @@ import {
 
 const ALLOWED_NODE_ENVS = ['development', 'test', 'production'] as const;
 
-export function validateEnv(rawConfig: Record<string, unknown>): Record<string, unknown> {
+function getRequiredString(
+  config: Record<string, unknown>,
+  key: string,
+): string {
+  const value = config[key];
+
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`${key} is required.`);
+  }
+
+  return value.trim();
+}
+
+export function validateEnv(
+  rawConfig: Record<string, unknown>,
+): Record<string, unknown> {
   const config = { ...rawConfig };
 
   const port = config.PORT;
   const parsedPort =
-    typeof port === 'string' && port.trim().length > 0 ? Number(port) : DEFAULT_PORT;
+    typeof port === 'string' && port.trim().length > 0
+      ? Number(port)
+      : DEFAULT_PORT;
 
   if (!Number.isInteger(parsedPort) || parsedPort <= 0) {
     throw new Error('PORT must be a positive integer.');
@@ -27,6 +44,7 @@ export function validateEnv(rawConfig: Record<string, unknown>): Record<string, 
   }
 
   config.NODE_ENV = nodeEnv;
+
   config.FRONTEND_URL =
     typeof config.FRONTEND_URL === 'string' && config.FRONTEND_URL.trim().length > 0
       ? config.FRONTEND_URL
@@ -41,6 +59,8 @@ export function validateEnv(rawConfig: Record<string, unknown>): Record<string, 
     typeof config.SWAGGER_PATH === 'string' && config.SWAGGER_PATH.trim().length > 0
       ? config.SWAGGER_PATH
       : DEFAULT_SWAGGER_PATH;
+
+  config.MONGODB_URI = getRequiredString(config, 'MONGODB_URI');
 
   return config;
 }
