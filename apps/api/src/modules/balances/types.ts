@@ -22,3 +22,21 @@ export interface CalculatedSplitRow {
   inputValue: number | null;
   owedShareMinor: number;
 }
+
+export interface RawDebtBuilderExpenseInput {
+  expenseId: string;
+  payerMembershipId: string;
+  isDeleted: boolean;
+}
+
+export interface RawDebtBuilderSplitInput {
+  expenseId: string;
+  membershipId: string;
+  owedShareMinor: number;
+}
+
+export interface RawDebtEdge {
+  fromMembershipId: string;
+  toMembershipId: string;
+  amountMinor: number;
+}
