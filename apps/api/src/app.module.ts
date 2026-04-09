@@ -8,6 +8,7 @@ import jwtConfig from './config/jwt.config';
 import mailConfig from './config/mail.config';
 import { DatabaseModule } from './database/database.module';
 import { ActivityModule } from './modules/activity/activity.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { GroupsModule } from './modules/groups/groups.module';
 import { HealthModule } from './modules/health/health.module';
@@ -27,6 +28,7 @@ import { UsersModule } from './modules/users/users.module';
     }),
     DatabaseModule,
     UsersModule,
+    AuthModule,
     GroupsModule,
     InvitationsModule,
     MembershipsModule,

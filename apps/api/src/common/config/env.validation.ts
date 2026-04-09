@@ -12,11 +12,9 @@ function getRequiredString(
   key: string,
 ): string {
   const value = config[key];
-
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new Error(`${key} is required.`);
   }
-
   return value.trim();
 }
 
@@ -38,7 +36,6 @@ export function validateEnv(
   config.PORT = parsedPort;
 
   const nodeEnv = String(config.NODE_ENV ?? 'development');
-
   if (!ALLOWED_NODE_ENVS.includes(nodeEnv as (typeof ALLOWED_NODE_ENVS)[number])) {
     throw new Error('NODE_ENV must be one of: development, test, production.');
   }
@@ -61,6 +58,7 @@ export function validateEnv(
       : DEFAULT_SWAGGER_PATH;
 
   config.MONGODB_URI = getRequiredString(config, 'MONGODB_URI');
+  config.JWT_ACCESS_SECRET = getRequiredString(config, 'JWT_ACCESS_SECRET');
 
   return config;
 }

@@ -65,17 +65,23 @@ function buildHttpExceptionResponse(exception: HttpException): {
       message = payload.error;
     }
 
+    const code =
+      typeof payload.code === 'string'
+        ? payload.code
+        : mapStatusToErrorCode(status);
+
     const details: Record<string, unknown> = { ...payload };
     delete details.statusCode;
     delete details.message;
     delete details.error;
+    delete details.code;
 
     return {
       status,
       body: {
         success: false,
         error: {
-          code: mapStatusToErrorCode(status),
+          code,
           message,
           details: Object.keys(details).length > 0 ? details : null,
         },
