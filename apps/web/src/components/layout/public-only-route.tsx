@@ -5,11 +5,15 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth';
 
+interface PublicOnlyRouteProps {
+  children: React.ReactNode;
+  authenticatedRedirectTo?: string;
+}
+
 export function PublicOnlyRoute({
   children,
-}: {
-  children: React.ReactNode;
-}) {
+  authenticatedRedirectTo,
+}: PublicOnlyRouteProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { status, isAuthenticated } = useAuth();
@@ -21,12 +25,12 @@ export function PublicOnlyRoute({
 
     if (isAuthenticated) {
       const redirect = searchParams.get('redirect');
-      router.replace(redirect || '/dashboard');
+      router.replace(authenticatedRedirectTo || redirect || '/dashboard');
     }
-  }, [status, isAuthenticated, router, searchParams]);
+  }, [status, isAuthenticated, router, searchParams, authenticatedRedirectTo]);
 
   if (status === 'booting') {
-    return <div className="p-6 text-sm text-neutral-600">Checking session...</div>;
+    return null;
   }
 
   if (isAuthenticated) {

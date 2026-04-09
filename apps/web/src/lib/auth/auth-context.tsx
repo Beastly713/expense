@@ -73,7 +73,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = useCallback(async (input: SignupInput) => {
     const session = await signupRequest(input);
+    console.log('Signup session response:', session);
+
     const me = await hydrateUserFromAccessToken(session.accessToken);
+    console.log('Hydrated user after signup:', me);
 
     setAccessToken(session.accessToken);
     setUser(me);
