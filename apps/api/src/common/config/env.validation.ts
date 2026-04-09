@@ -59,6 +59,7 @@ export function validateEnv(
 
   config.MONGODB_URI = getRequiredString(config, 'MONGODB_URI');
   config.JWT_ACCESS_SECRET = getRequiredString(config, 'JWT_ACCESS_SECRET');
+  config.JWT_REFRESH_SECRET = getRequiredString(config, 'JWT_REFRESH_SECRET');
 
   return config;
 }

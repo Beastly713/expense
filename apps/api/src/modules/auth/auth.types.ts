@@ -5,6 +5,12 @@ export interface AccessTokenPayload {
   email: string;
 }
 
+export interface RefreshTokenPayload {
+  sub: string;
+  email: string;
+  type: 'refresh';
+}
+
 export interface AuthenticatedUserDto {
   id: string;
   name: string;
@@ -17,10 +23,22 @@ export interface AuthSessionResponse {
   accessToken: string;
 }
 
+export interface AuthSessionArtifacts extends AuthSessionResponse {
+  refreshToken: string;
+}
+
 export interface AuthMeResponse {
   id: string;
   name: string;
   email: string;
   defaultCurrency: string;
   notificationPreferences: NotificationPreferences;
+}
+
+export interface RefreshAccessTokenResponse {
+  accessToken: string;
+}
+
+export interface LogoutResponse {
+  message: string;
 }

@@ -79,6 +79,12 @@ export class User {
   })
   lastLoginAt!: Date | null;
 
+  @Prop({
+    type: String,
+    default: null,
+  })
+  refreshTokenHash!: string | null;
+
   createdAt!: Date;
   updatedAt!: Date;
 }

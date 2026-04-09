@@ -13,6 +13,7 @@ interface CreateUserRecord {
   defaultCurrency?: string;
   notificationPreferences?: NotificationPreferences;
   lastLoginAt?: Date | null;
+  refreshTokenHash?: string | null;
 }
 
 @Injectable()
