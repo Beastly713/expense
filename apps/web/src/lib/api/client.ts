@@ -1,81 +1,85 @@
-import type { ApiResponse } from '@splitwise/shared-types';
+import { env } from '../env';
 
-import { getApiBaseUrl } from '@/lib/env';
+type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
-interface ApiClientErrorOptions {
-  status: number;
-  code: string;
-  message: string;
-  details?: Record<string, unknown> | null;
+interface ApiRequestOptions {
+  method?: HttpMethod;
+  body?: unknown;
+  accessToken?: string | null;
+  headers?: HeadersInit;
 }
 
-export class ApiClientError extends Error {
-  public readonly status: number;
-  public readonly code: string;
-  public readonly details: Record<string, unknown> | null | undefined;
+interface ApiErrorShape {
+  success: false;
+  error: {
+    code: string;
+    message: string;
+    details?: Record<string, unknown> | null;
+  };
+}
 
-  constructor(options: ApiClientErrorOptions) {
-    super(options.message);
+export class ApiError extends Error {
+  readonly code: string;
+  readonly details?: Record<string, unknown> | null;
+  readonly status: number;
 
-    this.name = 'ApiClientError';
-    this.status = options.status;
-    this.code = options.code;
-    this.details = options.details;
+  constructor(params: {
+    status: number;
+    code: string;
+    message: string;
+    details?: Record<string, unknown> | null;
+  }) {
+    super(params.message);
+    this.name = 'ApiError';
+    this.status = params.status;
+    this.code = params.code;
+    this.details = params.details;
   }
 }
 
-function buildApiUrl(path: string): string {
-  const baseUrl = getApiBaseUrl();
-  const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-  const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
+export async function apiRequest<TResponse>(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<TResponse> {
+  const headers = new Headers(options.headers);
 
-  return new URL(normalizedPath, normalizedBaseUrl).toString();
-}
-
-export async function apiFetch<TData>(path: string, init?: RequestInit): Promise<TData> {
-  const headers = new Headers(init?.headers);
-
-  if (init?.body && !headers.has('Content-Type')) {
+  if (options.body !== undefined) {
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(buildApiUrl(path), {
-    ...init,
+  if (options.accessToken) {
+    headers.set('Authorization', `Bearer ${options.accessToken}`);
+  }
+
+  const response = await fetch(`${env.apiBaseUrl}${path}`, {
+    method: options.method ?? 'GET',
     headers,
+    credentials: 'include',
+    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     cache: 'no-store',
   });
 
-  const contentType = response.headers.get('content-type') ?? '';
-  let parsedBody: ApiResponse<TData> | null = null;
+  const payload = (await response.json()) as
+    | { success: true; data: TResponse }
+    | ApiErrorShape;
 
-  if (contentType.includes('application/json')) {
-    parsedBody = (await response.json()) as ApiResponse<TData>;
-  }
+  if (!response.ok || payload.success === false) {
+    const errorPayload =
+      payload && 'error' in payload
+        ? payload.error
+        : {
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Request failed.',
+            details: null,
+          };
 
-  if (!response.ok) {
-    if (parsedBody && !parsedBody.success) {
-      throw new ApiClientError({
-        status: response.status,
-        code: parsedBody.error.code,
-        message: parsedBody.error.message,
-        details: parsedBody.error.details ?? null,
-      });
-    }
-
-    throw new ApiClientError({
+    throw new ApiError({
       status: response.status,
-      code: 'REQUEST_FAILED',
-      message: 'The API request failed.',
+      code: errorPayload.code,
+      message: errorPayload.message,
+      details: errorPayload.details ?? null,
     });
   }
 
-  if (!parsedBody || !parsedBody.success) {
-    throw new ApiClientError({
-      status: response.status,
-      code: 'INVALID_RESPONSE',
-      message: 'The API returned an unexpected response shape.',
-    });
-  }
-
-  return parsedBody.data;
+  return payload.data;
 }

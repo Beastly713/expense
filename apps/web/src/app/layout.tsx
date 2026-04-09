@@ -1,31 +1,25 @@
 import type { Metadata } from 'next';
-import type { ReactNode } from 'react';
+import { Inter } from 'next/font/google';
 
 import './globals.css';
+import { AuthProvider } from '@/lib/auth';
 
-import { SiteHeader } from '@/components/layout/site-header';
-import { publicEnv } from '@/lib/env';
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: {
-    default: publicEnv.appName,
-    template: `%s | ${publicEnv.appName}`,
-  },
-  description: 'Splitwise-style expense sharing MVP.',
+  title: 'Splitwise Clone',
+  description: 'Expense-sharing MVP',
 };
 
-interface RootLayoutProps {
-  children: ReactNode;
-}
-
-export default function RootLayout({ children }: RootLayoutProps) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="en">
-      <body>
-        <div className="min-h-screen bg-slate-50">
-          <SiteHeader />
-          {children}
-        </div>
+      <body className={inter.className}>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

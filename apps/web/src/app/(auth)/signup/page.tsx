@@ -1,11 +1,14 @@
+import { PublicOnlyRoute } from '@/components/layout/public-only-route';
 import { RoutePlaceholder } from '@/components/layout/route-placeholder';
 
 export default function SignupPage() {
   return (
-    <RoutePlaceholder
-      title="Sign up"
-      routePath="/signup"
-      description="Signup page placeholder with the final route already reserved."
-    />
+    <PublicOnlyRoute>
+      <RoutePlaceholder
+        title="Signup"
+        routePath="/signup"
+        description="Signup page shell is ready. Form UI comes in the next commit."
+      />
+    </PublicOnlyRoute>
   );
 }

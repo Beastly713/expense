@@ -1,11 +1,14 @@
+import { ProtectedRoute } from '@/components/layout/protected-route';
 import { RoutePlaceholder } from '@/components/layout/route-placeholder';
 
-export default function ActivityPage() {
+export default function DashboardPage() {
   return (
-    <RoutePlaceholder
-      title="Activity"
-      routePath="/activity"
-      description="Global activity feed placeholder."
-    />
+    <ProtectedRoute>
+      <RoutePlaceholder
+        title="Dashboard"
+        routePath="/dashboard"
+        description="Protected dashboard shell is ready. Page UI comes in later phase work."
+      />
+    </ProtectedRoute>
   );
 }

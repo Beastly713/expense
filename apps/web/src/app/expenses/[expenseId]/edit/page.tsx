@@ -1,11 +1,14 @@
+import { ProtectedRoute } from '@/components/layout/protected-route';
 import { RoutePlaceholder } from '@/components/layout/route-placeholder';
 
 export default function EditExpensePage() {
   return (
-    <RoutePlaceholder
-      title="Edit expense"
-      routePath="/expenses/:expenseId/edit"
-      description="Expense edit page placeholder using the final route shape."
-    />
+    <ProtectedRoute>
+      <RoutePlaceholder
+        title="Edit expense"
+        routePath="/expenses/[expenseId]/edit"
+        description="Protected edit expense shell is ready."
+      />
+    </ProtectedRoute>
   );
 }

@@ -1,11 +1,14 @@
+import { ProtectedRoute } from '@/components/layout/protected-route';
 import { RoutePlaceholder } from '@/components/layout/route-placeholder';
 
 export default function GroupDetailsPage() {
   return (
-    <RoutePlaceholder
-      title="Group details"
-      routePath="/groups/:groupId"
-      description="Group details page placeholder for members, balances, expenses, and activity."
-    />
+    <ProtectedRoute>
+      <RoutePlaceholder
+        title="Group details"
+        routePath="/groups/[groupId]"
+        description="Protected group details shell is ready."
+      />
+    </ProtectedRoute>
   );
 }
