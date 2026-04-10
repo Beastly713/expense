@@ -85,6 +85,18 @@ export class User {
   })
   refreshTokenHash!: string | null;
 
+  @Prop({
+    type: String,
+    default: null,
+  })
+  passwordResetTokenHash!: string | null;
+
+  @Prop({
+    type: Date,
+    default: null,
+  })
+  passwordResetExpiresAt!: Date | null;
+
   createdAt!: Date;
   updatedAt!: Date;
 }
@@ -93,3 +105,4 @@ export type UserDocument = HydratedDocument<User>;
 export const UserSchema = SchemaFactory.createForClass(User);
 
 UserSchema.index({ email: 1 }, { unique: true });
+UserSchema.index({ passwordResetTokenHash: 1 });

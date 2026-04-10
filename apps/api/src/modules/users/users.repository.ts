@@ -14,6 +14,8 @@ interface CreateUserRecord {
   notificationPreferences?: NotificationPreferences;
   lastLoginAt?: Date | null;
   refreshTokenHash?: string | null;
+  passwordResetTokenHash?: string | null;
+  passwordResetExpiresAt?: Date | null;
 }
 
 @Injectable()
@@ -38,6 +40,12 @@ export class UsersRepository {
     return this.userModel.findOne({
       email: email.trim().toLowerCase(),
     }).exec();
+  }
+
+  async findByPasswordResetTokenHash(
+    passwordResetTokenHash: string,
+  ): Promise<UserDocument | null> {
+    return this.userModel.findOne({ passwordResetTokenHash }).exec();
   }
 
   async updateById(

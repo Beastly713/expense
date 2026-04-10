@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -6,19 +7,23 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { createHash, randomBytes } from 'crypto';
 
-import type { UserDocument } from '../users/user.schema';
 import { UsersRepository } from '../users/users.repository';
+import type { UserDocument } from '../users/user.schema';
+import { PASSWORD_RESET_TOKEN_TTL_MS } from './auth.constants';
+import { AuthEmailService } from './auth-email.service';
 import type {
   AccessTokenPayload,
   AuthMeResponse,
   AuthSessionArtifacts,
   AuthenticatedUserDto,
   LogoutResponse,
-  RefreshAccessTokenResponse,
   RefreshTokenPayload,
 } from './auth.types';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SignupDto } from './dto/signup.dto';
 
 @Injectable()
@@ -27,6 +32,7 @@ export class AuthService {
     private readonly usersRepository: UsersRepository,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly authEmailService: AuthEmailService,
   ) {}
 
   async signup(dto: SignupDto): Promise<AuthSessionArtifacts> {
@@ -47,6 +53,8 @@ export class AuthService {
       passwordHash,
       lastLoginAt: now,
       refreshTokenHash: null,
+      passwordResetTokenHash: null,
+      passwordResetExpiresAt: null,
     });
 
     return this.buildSessionArtifacts(user);
@@ -97,9 +105,7 @@ export class AuthService {
     };
   }
 
-  async refreshAccessToken(
-    refreshToken: string,
-  ): Promise<AuthSessionArtifacts> {
+  async refreshAccessToken(refreshToken: string): Promise<AuthSessionArtifacts> {
     const user = await this.getUserForRefreshToken(refreshToken);
     return this.buildSessionArtifacts(user);
   }
@@ -122,6 +128,77 @@ export class AuthService {
 
     return {
       message: 'Logged out successfully',
+    };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto): Promise<LogoutResponse> {
+    const user = await this.usersRepository.findByEmail(dto.email);
+
+    if (!user) {
+      return {
+        message: 'Password reset email sent if account exists',
+      };
+    }
+
+    const rawResetToken = randomBytes(32).toString('hex');
+    const hashedResetToken = this.hashResetToken(rawResetToken);
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MS);
+
+    await this.usersRepository.updateById(user._id.toString(), {
+      $set: {
+        passwordResetTokenHash: hashedResetToken,
+        passwordResetExpiresAt: expiresAt,
+      },
+    });
+
+    await this.authEmailService.sendPasswordResetEmail({
+      email: user.email,
+      resetToken: rawResetToken,
+    });
+
+    return {
+      message: 'Password reset email sent if account exists',
+    };
+  }
+
+  async resetPassword(dto: ResetPasswordDto): Promise<LogoutResponse> {
+    const hashedResetToken = this.hashResetToken(dto.token);
+    const user = await this.usersRepository.findByPasswordResetTokenHash(
+      hashedResetToken,
+    );
+
+    if (!user) {
+      throw new BadRequestException({
+        code: 'INVALID_TOKEN',
+        message: 'Reset token is invalid.',
+      });
+    }
+
+    if (
+      !user.passwordResetExpiresAt ||
+      user.passwordResetExpiresAt.getTime() < Date.now()
+    ) {
+      throw new BadRequestException({
+        code: 'EXPIRED_TOKEN',
+        message: 'Reset token has expired.',
+      });
+    }
+
+    const nextPasswordHash = await bcrypt.hash(dto.newPassword, 12);
+
+    await this.usersRepository.updateById(user._id.toString(), {
+      $set: {
+        passwordHash: nextPasswordHash,
+        refreshTokenHash: null,
+      },
+      $unset: {
+        passwordResetTokenHash: 1,
+        passwordResetExpiresAt: 1,
+      },
+    });
+
+    return {
+      message: 'Password reset successful',
     };
   }
 
@@ -244,5 +321,9 @@ export class AuthService {
     } catch {
       return null;
     }
+  }
+
+  private hashResetToken(rawToken: string): string {
+    return createHash('sha256').update(rawToken).digest('hex');
   }
 }
