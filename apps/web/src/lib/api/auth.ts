@@ -27,7 +27,7 @@ export interface RefreshResponse {
   accessToken: string;
 }
 
-export interface LogoutResponse {
+export interface MessageResponse {
   message: string;
 }
 
@@ -40,6 +40,15 @@ export interface SignupInput {
 export interface LoginInput {
   email: string;
   password: string;
+}
+
+export interface ForgotPasswordInput {
+  email: string;
+}
+
+export interface ResetPasswordInput {
+  token: string;
+  newPassword: string;
 }
 
 export function signup(input: SignupInput) {
@@ -70,7 +79,21 @@ export function refreshAccessToken() {
 }
 
 export function logout() {
-  return apiRequest<LogoutResponse>('/auth/logout', {
+  return apiRequest<MessageResponse>('/auth/logout', {
     method: 'POST',
+  });
+}
+
+export function forgotPassword(input: ForgotPasswordInput) {
+  return apiRequest<MessageResponse>('/auth/forgot-password', {
+    method: 'POST',
+    body: input,
+  });
+}
+
+export function resetPassword(input: ResetPasswordInput) {
+  return apiRequest<MessageResponse>('/auth/reset-password', {
+    method: 'POST',
+    body: input,
   });
 }

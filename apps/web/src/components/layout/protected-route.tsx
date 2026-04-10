@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth';
+import { ProtectedShellHeader } from '@/components/layout/protected-shell-header';
 
 export function ProtectedRoute({
   children,
@@ -33,5 +34,10 @@ export function ProtectedRoute({
     return null;
   }
 
-  return <>{children}</>;
+  return (
+    <div className="min-h-screen bg-neutral-50">
+      <ProtectedShellHeader />
+      {children}
+    </div>
+  );
 }

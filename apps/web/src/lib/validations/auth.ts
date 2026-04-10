@@ -10,6 +10,15 @@ export interface LoginFormValues {
   password: string;
 }
 
+export interface ForgotPasswordFormValues {
+  email: string;
+}
+
+export interface ResetPasswordFormValues {
+  password: string;
+  confirmPassword: string;
+}
+
 export interface AuthFormErrors {
   name?: string;
   email?: string;
@@ -53,6 +62,34 @@ export function validateLoginForm(values: LoginFormValues): AuthFormErrors {
 
   if (values.password.length < 8) {
     errors.password = 'Password must be at least 8 characters.';
+  }
+
+  return errors;
+}
+
+export function validateForgotPasswordForm(
+  values: ForgotPasswordFormValues,
+): AuthFormErrors {
+  const errors: AuthFormErrors = {};
+
+  if (!isValidEmail(values.email.trim())) {
+    errors.email = 'Enter a valid email address.';
+  }
+
+  return errors;
+}
+
+export function validateResetPasswordForm(
+  values: ResetPasswordFormValues,
+): AuthFormErrors {
+  const errors: AuthFormErrors = {};
+
+  if (values.password.length < 8) {
+    errors.password = 'Password must be at least 8 characters.';
+  }
+
+  if (values.confirmPassword !== values.password) {
+    errors.confirmPassword = 'Passwords do not match.';
   }
 
   return errors;
