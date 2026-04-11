@@ -5,7 +5,6 @@ import type {
   MembershipStatus,
 } from '@splitwise/shared-types';
 import type { Model, UpdateQuery } from 'mongoose';
-
 import {
   Membership,
   type MembershipDocument,
@@ -49,7 +48,6 @@ export class MembershipsRepository {
           emailSnapshot: row.emailSnapshot.trim().toLowerCase(),
         }),
     );
-
     return Promise.all(docs.map((doc) => doc.save()));
   }
 
@@ -69,6 +67,29 @@ export class MembershipsRepository {
     userId: string,
   ): Promise<MembershipDocument | null> {
     return this.membershipModel.findOne({ groupId, userId }).exec();
+  }
+
+  async findActiveByGroupIdAndUserId(
+    groupId: string,
+    userId: string,
+  ): Promise<MembershipDocument | null> {
+    return this.membershipModel
+      .findOne({
+        groupId,
+        userId,
+        status: 'active',
+      })
+      .exec();
+  }
+
+  async findActiveByUserId(userId: string): Promise<MembershipDocument[]> {
+    return this.membershipModel
+      .find({
+        userId,
+        status: 'active',
+      })
+      .sort({ createdAt: 1 })
+      .exec();
   }
 
   async findByInvitationId(
