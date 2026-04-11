@@ -1,7 +1,9 @@
-import { apiRequest } from './client';
+import type {
+  GroupType,
+  MembershipStatus,
+} from '@splitwise/shared-types';
 
-export type GroupType = 'group' | 'direct';
-export type MembershipStatus = 'active' | 'pending' | 'removed';
+import { apiRequest } from './client';
 
 export interface CreateGroupInput {
   name: string;
@@ -56,6 +58,16 @@ export interface SimplifiedBalance {
   fromMembershipId: string;
   toMembershipId: string;
   amountMinor: number;
+}
+
+export interface MemberNetBalance {
+  membershipId: string;
+  netBalanceMinor: number;
+}
+
+export interface GroupBalancesResponse {
+  memberNetBalances: MemberNetBalance[];
+  simplifiedBalances: SimplifiedBalance[];
 }
 
 export interface ListGroupMembersResponse {
@@ -131,6 +143,13 @@ export function getGroupDetails(groupId: string, accessToken: string) {
 
 export function listGroupMembers(groupId: string, accessToken: string) {
   return apiRequest<ListGroupMembersResponse>(`/groups/${groupId}/members`, {
+    method: 'GET',
+    accessToken,
+  });
+}
+
+export function getGroupBalances(groupId: string, accessToken: string) {
+  return apiRequest<GroupBalancesResponse>(`/groups/${groupId}/balances`, {
     method: 'GET',
     accessToken,
   });

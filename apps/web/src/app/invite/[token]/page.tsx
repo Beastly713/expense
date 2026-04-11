@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useMemo, useState } from 'react';
+
 import { acceptInvite, type AcceptInviteResponse } from '@/lib/api';
 import { ApiError } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth';

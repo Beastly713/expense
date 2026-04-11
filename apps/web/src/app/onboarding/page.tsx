@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ProtectedRoute } from '@/components/layout/protected-route';
+import { useState } from 'react';
+
 import { CreateGroupModal } from '@/components/groups/create-group-modal';
+import { ProtectedRoute } from '@/components/layout/protected-route';
 import { useAuth } from '@/lib/auth';
 
 export default function OnboardingPage() {

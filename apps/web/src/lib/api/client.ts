@@ -1,15 +1,19 @@
-import { env } from '../env';
+import { env } from '@/lib/env';
 
-type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
 interface ApiRequestOptions {
   method?: HttpMethod;
   body?: unknown;
   accessToken?: string | null;
-  headers?: HeadersInit;
 }
 
-interface ApiErrorShape {
+interface ApiEnvelopeSuccess<TData> {
+  success: true;
+  data: TData;
+}
+
+interface ApiEnvelopeError {
   success: false;
   error: {
     code: string;
@@ -18,30 +22,34 @@ interface ApiErrorShape {
   };
 }
 
+type ApiEnvelope<TData> = ApiEnvelopeSuccess<TData> | ApiEnvelopeError;
+
 export class ApiError extends Error {
-  readonly code: string;
-  readonly details?: Record<string, unknown> | null;
-  readonly status: number;
+  code: string;
+  status: number;
+  details: Record<string, unknown> | null | undefined;
 
   constructor(params: {
-    status: number;
     code: string;
     message: string;
+    status: number;
     details?: Record<string, unknown> | null;
   }) {
     super(params.message);
     this.name = 'ApiError';
-    this.status = params.status;
     this.code = params.code;
+    this.status = params.status;
     this.details = params.details;
   }
 }
 
-export async function apiRequest<TResponse>(
+export async function apiRequest<TData>(
   path: string,
   options: ApiRequestOptions = {},
-): Promise<TResponse> {
-  const headers = new Headers(options.headers);
+): Promise<TData> {
+  const headers = new Headers({
+    Accept: 'application/json',
+  });
 
   if (options.body !== undefined) {
     headers.set('Content-Type', 'application/json');
@@ -51,33 +59,51 @@ export async function apiRequest<TResponse>(
     headers.set('Authorization', `Bearer ${options.accessToken}`);
   }
 
-  const response = await fetch(`${env.apiBaseUrl}${path}`, {
+  const requestInit: RequestInit = {
     method: options.method ?? 'GET',
     headers,
     credentials: 'include',
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     cache: 'no-store',
-  });
+  };
 
-  const payload = (await response.json()) as
-    | { success: true; data: TResponse }
-    | ApiErrorShape;
+  if (options.body !== undefined) {
+    requestInit.body = JSON.stringify(options.body);
+  }
 
-  if (!response.ok || payload.success === false) {
-    const errorPayload =
-      payload && 'error' in payload
-        ? payload.error
-        : {
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'Request failed.',
-            details: null,
-          };
+  const response = await fetch(`${env.apiBaseUrl}${path}`, requestInit);
+
+  let payload: ApiEnvelope<TData> | null = null;
+
+  try {
+    payload = (await response.json()) as ApiEnvelope<TData>;
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    if (payload && !payload.success) {
+      throw new ApiError({
+        code: payload.error.code,
+        message: payload.error.message,
+        status: response.status,
+        details: payload.error.details ?? null,
+      });
+    }
 
     throw new ApiError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'Request failed.',
       status: response.status,
-      code: errorPayload.code,
-      message: errorPayload.message,
-      details: errorPayload.details ?? null,
+      details: null,
+    });
+  }
+
+  if (!payload || !payload.success) {
+    throw new ApiError({
+      code: 'INVALID_RESPONSE',
+      message: 'Invalid API response.',
+      status: response.status,
+      details: null,
     });
   }
 

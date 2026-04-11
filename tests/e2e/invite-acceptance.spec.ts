@@ -69,7 +69,15 @@ test('user A invites user B and user B accepts invite', async ({ browser, page }
   await page.getByRole('button', { name: 'Send invites', exact: true }).click();
 
   await expect(page.getByText('Invite sent successfully.')).toBeVisible();
-  await expect(page.getByText(userBEmail)).toBeVisible();
+  const pendingInvitesSection = page
+  .locator('section')
+  .filter({
+    has: page.getByRole('heading', { name: 'Pending invites' }),
+  });
+
+await expect(
+  pendingInvitesSection.locator('p').filter({ hasText: userBEmail }).first(),
+).toBeVisible();
 
   const inviteToken = await getPendingInviteToken(userBEmail);
 
@@ -94,12 +102,31 @@ test('user A invites user B and user B accepts invite', async ({ browser, page }
   await pageB.getByRole('link', { name: 'Open group' }).click();
 
   await expect(pageB).toHaveURL(/\/groups\/.+/);
-  await expect(
-    pageB.getByRole('heading', { name: 'User B', exact: true }),
-  ).toBeVisible();
+await expect(
+  pageB.getByRole('heading', { name: 'Playwright Trip', exact: true }),
+).toBeVisible();
+
+const activeMembersSectionB = pageB.locator('section').filter({
+  has: pageB.getByRole('heading', { name: 'Members' }),
+});
+
+await expect(activeMembersSectionB.getByText('User B', { exact: true })).toBeVisible();
 
   await page.reload();
-  await expect(page.getByText(userBEmail)).toHaveCount(0);
+
+const pendingInvitesSectionAfterAccept = page.locator('section').filter({
+  has: page.getByRole('heading', { name: 'Pending invites' }),
+});
+
+await expect(
+  pendingInvitesSectionAfterAccept.locator('p').filter({ hasText: userBEmail }),
+).toHaveCount(0);
+
+const activeMembersSectionA = page.locator('section').filter({
+  has: page.getByRole('heading', { name: 'Members' }),
+});
+
+await expect(activeMembersSectionA.getByText('User B', { exact: true })).toBeVisible();
 
   await contextB.close();
 });

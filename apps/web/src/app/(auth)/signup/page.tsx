@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
+
 import { AuthFormField } from '@/components/forms/auth-form-field';
 import { AuthPageShell } from '@/components/forms/auth-page-shell';
 import { PublicOnlyRoute } from '@/components/layout/public-only-route';
-import { useAuth } from '@/lib/auth';
 import { ApiError } from '@/lib/api/client';
+import { useAuth } from '@/lib/auth';
 import {
   type AuthFormErrors,
   validateSignupForm,

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+
 import { CreateGroupModal } from '@/components/groups/create-group-modal';
 import { useAuth } from '@/lib/auth';
 import { env } from '@/lib/env';

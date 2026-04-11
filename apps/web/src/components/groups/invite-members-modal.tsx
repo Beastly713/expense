@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+
 import { createGroupInvites } from '@/lib/api';
 import { ApiError } from '@/lib/api/client';
 import { validateInviteEmails } from '@/lib/validations/invites';

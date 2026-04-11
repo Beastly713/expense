@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
-import { useAuth } from '@/lib/auth';
 import { ProtectedShellHeader } from '@/components/layout/protected-shell-header';
+import { useAuth } from '@/lib/auth';
 
 export function ProtectedRoute({
   children,
