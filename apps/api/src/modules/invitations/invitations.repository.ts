@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import type { InvitationStatus } from '@splitwise/shared-types';
 import type { Model, UpdateQuery } from 'mongoose';
-
 import {
   Invitation,
   type InvitationDocument,
@@ -45,6 +44,26 @@ export class InvitationsRepository {
     return this.invitationModel
       .find({ groupId })
       .sort({ createdAt: -1 })
+      .exec();
+  }
+
+  async findPendingByGroupId(groupId: string): Promise<InvitationDocument[]> {
+    return this.invitationModel
+      .find({ groupId, status: 'pending' })
+      .sort({ createdAt: -1 })
+      .exec();
+  }
+
+  async findPendingByGroupIdAndEmail(
+    groupId: string,
+    email: string,
+  ): Promise<InvitationDocument | null> {
+    return this.invitationModel
+      .findOne({
+        groupId,
+        email: email.trim().toLowerCase(),
+        status: 'pending',
+      })
       .exec();
   }
 

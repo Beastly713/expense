@@ -92,6 +92,32 @@ export class MembershipsRepository {
       .exec();
   }
 
+  async findActiveByGroupIdAndEmailSnapshot(
+    groupId: string,
+    email: string,
+  ): Promise<MembershipDocument | null> {
+    return this.membershipModel
+      .findOne({
+        groupId,
+        emailSnapshot: email.trim().toLowerCase(),
+        status: 'active',
+      })
+      .exec();
+  }
+
+  async findPendingByGroupIdAndEmailSnapshot(
+    groupId: string,
+    email: string,
+  ): Promise<MembershipDocument | null> {
+    return this.membershipModel
+      .findOne({
+        groupId,
+        emailSnapshot: email.trim().toLowerCase(),
+        status: 'pending',
+      })
+      .exec();
+  }
+
   async findByInvitationId(
     invitationId: string,
   ): Promise<MembershipDocument | null> {
