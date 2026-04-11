@@ -1,9 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
-
 import { AuthFormField } from '@/components/forms/auth-form-field';
 import { AuthPageShell } from '@/components/forms/auth-page-shell';
 import { PublicOnlyRoute } from '@/components/layout/public-only-route';
@@ -16,6 +15,7 @@ import {
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signup } = useAuth();
 
   const [name, setName] = useState('');
@@ -24,6 +24,8 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState<AuthFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const redirect = searchParams.get('redirect');
 
   const formValues = useMemo(
     () => ({
@@ -47,18 +49,18 @@ export default function SignupPage() {
 
     try {
       setIsSubmitting(true);
+
       await signup({
         name: name.trim(),
         email: email.trim(),
         password,
       });
-      router.replace('/onboarding');
-    } catch (error) {
-      console.error('Signup failed:', error);
 
+      router.replace(redirect || '/onboarding');
+    } catch (error) {
       if (error instanceof ApiError) {
         setErrors({
-          form: `${error.code}: ${error.message}`,
+          form: error.message,
         });
       } else if (error instanceof Error) {
         setErrors({
@@ -75,7 +77,7 @@ export default function SignupPage() {
   }
 
   return (
-    <PublicOnlyRoute authenticatedRedirectTo="/onboarding">
+    <PublicOnlyRoute authenticatedRedirectTo={redirect || '/onboarding'}>
       <AuthPageShell
         title="Create your account"
         subtitle="Sign up with email and password to start using the app."
