@@ -13,6 +13,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AccessTokenGuard } from '../../common/guards/access-token.guard';
 import type { AuthenticatedRequestUser } from '../../common/types/authenticated-request-user';
 import { CreateGroupExpenseDto } from '../expenses/dto/create-group-expense.dto';
+import { ListGroupExpensesDto } from '../expenses/dto/list-group-expenses.dto';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { ListGroupsDto } from './dto/list-groups.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
@@ -55,6 +56,19 @@ export class GroupsController {
     @CurrentUser() currentUser: AuthenticatedRequestUser,
   ) {
     return this.groupsService.listGroupMembers(groupId, currentUser.userId);
+  }
+
+  @Get(':groupId/expenses')
+  listGroupExpenses(
+    @Param('groupId') groupId: string,
+    @Query() query: ListGroupExpensesDto,
+    @CurrentUser() currentUser: AuthenticatedRequestUser,
+  ) {
+    return this.groupsService.listGroupExpenses(
+      groupId,
+      query,
+      currentUser.userId,
+    );
   }
 
   @Post(':groupId/expenses')

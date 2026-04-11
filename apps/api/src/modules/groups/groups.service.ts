@@ -8,6 +8,7 @@ import {
 import { calculateSplitRows } from '../balances';
 import { ActivityRepository } from '../activity/activity.repository';
 import { CreateGroupExpenseDto } from '../expenses/dto/create-group-expense.dto';
+import { ListGroupExpensesDto } from '../expenses/dto/list-group-expenses.dto';
 import { ExpensesRepository } from '../expenses/expenses.repository';
 import { SplitsRepository } from '../expenses/splits.repository';
 import { MembershipsRepository } from '../memberships/memberships.repository';
@@ -219,6 +220,65 @@ export class GroupsService {
       members: visibleMembers.map((membership) =>
         this.mapMembershipToMemberRow(membership),
       ),
+    };
+  }
+
+  async listGroupExpenses(
+    groupId: string,
+    query: ListGroupExpensesDto,
+    currentUserId: string,
+  ) {
+    const group = await this.groupsRepository.findById(groupId);
+
+    if (!group) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Group not found.',
+      });
+    }
+
+    await this.assertActiveGroupMembership(groupId, currentUserId);
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+
+    const findExpensesParams: {
+      groupId: string;
+      page: number;
+      limit: number;
+      includeDeleted?: boolean;
+      search?: string;
+    } = {
+      groupId,
+      page,
+      limit,
+      includeDeleted: query.includeDeleted ?? false,
+    };
+
+    if (query.search && query.search.trim().length > 0) {
+      findExpensesParams.search = query.search.trim();
+    }
+
+    const { items, total } =
+      await this.expensesRepository.findPageByGroupId(findExpensesParams);
+
+    return {
+      items: items.map((expense) => ({
+        id: expense._id.toString(),
+        title: expense.title,
+        amountMinor: expense.amountMinor,
+        currency: expense.currency,
+        dateIncurred: this.toDateOnlyString(expense.dateIncurred),
+        payerMembershipId: expense.payerMembershipId.toString(),
+        splitMethod: expense.splitMethod,
+        isDeleted: expense.isDeleted,
+        createdAt: expense.createdAt.toISOString(),
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+      },
     };
   }
 

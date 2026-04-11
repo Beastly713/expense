@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-
+import { AuthModule } from '../auth/auth.module';
+import { MembershipsModule } from '../memberships/memberships.module';
 import { Expense, ExpenseSchema } from './expense.schema';
+import { ExpensesController } from './expenses.controller';
 import { ExpensesRepository } from './expenses.repository';
+import { ExpensesService } from './expenses.service';
 import { Split, SplitSchema } from './split.schema';
 import { SplitsRepository } from './splits.repository';
 
@@ -12,8 +15,16 @@ import { SplitsRepository } from './splits.repository';
       { name: Expense.name, schema: ExpenseSchema },
       { name: Split.name, schema: SplitSchema },
     ]),
+    AuthModule,
+    MembershipsModule,
   ],
-  providers: [ExpensesRepository, SplitsRepository],
-  exports: [MongooseModule, ExpensesRepository, SplitsRepository],
+  controllers: [ExpensesController],
+  providers: [ExpensesRepository, SplitsRepository, ExpensesService],
+  exports: [
+    MongooseModule,
+    ExpensesRepository,
+    SplitsRepository,
+    ExpensesService,
+  ],
 })
 export class ExpensesModule {}
