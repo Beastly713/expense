@@ -71,6 +71,14 @@ export class GroupsController {
     );
   }
 
+  @Get(':groupId/balances')
+  getGroupBalances(
+    @Param('groupId') groupId: string,
+    @CurrentUser() currentUser: AuthenticatedRequestUser,
+  ) {
+    return this.groupsService.getGroupBalances(groupId, currentUser.userId);
+  }
+
   @Post(':groupId/expenses')
   createExpense(
     @Param('groupId') groupId: string,

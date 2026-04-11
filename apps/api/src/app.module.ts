@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-
 import { validateEnv } from './common/config/env.validation';
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
@@ -9,6 +8,7 @@ import mailConfig from './config/mail.config';
 import { DatabaseModule } from './database/database.module';
 import { ActivityModule } from './modules/activity/activity.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { GroupsModule } from './modules/groups/groups.module';
 import { HealthModule } from './modules/health/health.module';
@@ -36,6 +36,7 @@ import { UsersModule } from './modules/users/users.module';
     SettlementsModule,
     NotificationsModule,
     ActivityModule,
+    DashboardModule,
     HealthModule,
   ],
 })

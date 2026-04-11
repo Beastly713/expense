@@ -282,6 +282,27 @@ export class GroupsService {
     };
   }
 
+  async getGroupBalances(groupId: string, currentUserId: string) {
+    const group = await this.groupsRepository.findById(groupId);
+
+    if (!group) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Group not found.',
+      });
+    }
+
+    await this.assertActiveGroupMembership(groupId, currentUserId);
+
+    const { snapshot } =
+      await this.groupBalanceService.getGroupBalanceState(groupId);
+
+    return {
+      memberNetBalances: snapshot.netBalances,
+      simplifiedBalances: snapshot.simplifiedDebts,
+    };
+  }
+
   async createExpense(
     groupId: string,
     dto: CreateGroupExpenseDto,
