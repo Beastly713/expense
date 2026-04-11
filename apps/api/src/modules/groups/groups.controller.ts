@@ -12,6 +12,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AccessTokenGuard } from '../../common/guards/access-token.guard';
 import type { AuthenticatedRequestUser } from '../../common/types/authenticated-request-user';
+import { CreateGroupExpenseDto } from '../expenses/dto/create-group-expense.dto';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { ListGroupsDto } from './dto/list-groups.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
@@ -54,6 +55,15 @@ export class GroupsController {
     @CurrentUser() currentUser: AuthenticatedRequestUser,
   ) {
     return this.groupsService.listGroupMembers(groupId, currentUser.userId);
+  }
+
+  @Post(':groupId/expenses')
+  createExpense(
+    @Param('groupId') groupId: string,
+    @Body() dto: CreateGroupExpenseDto,
+    @CurrentUser() currentUser: AuthenticatedRequestUser,
+  ) {
+    return this.groupsService.createExpense(groupId, dto, currentUser.userId);
   }
 
   @Patch(':groupId')

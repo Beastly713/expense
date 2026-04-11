@@ -5,16 +5,18 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { computeGroupBalanceSnapshot } from '../balances';
+import { calculateSplitRows } from '../balances';
 import { ActivityRepository } from '../activity/activity.repository';
+import { CreateGroupExpenseDto } from '../expenses/dto/create-group-expense.dto';
 import { ExpensesRepository } from '../expenses/expenses.repository';
 import { SplitsRepository } from '../expenses/splits.repository';
 import { MembershipsRepository } from '../memberships/memberships.repository';
-import { SettlementsRepository } from '../settlements/settlements.repository';
+import { NotificationsRepository } from '../notifications/notifications.repository';
 import { UsersRepository } from '../users/users.repository';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { ListGroupsDto } from './dto/list-groups.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
+import { GroupBalanceService } from './group-balance.service';
 import { GroupsRepository } from './groups.repository';
 
 @Injectable()
@@ -26,11 +28,13 @@ export class GroupsService {
     private readonly activityRepository: ActivityRepository,
     private readonly expensesRepository: ExpensesRepository,
     private readonly splitsRepository: SplitsRepository,
-    private readonly settlementsRepository: SettlementsRepository,
+    private readonly notificationsRepository: NotificationsRepository,
+    private readonly groupBalanceService: GroupBalanceService,
   ) {}
 
   async createGroup(dto: CreateGroupDto, currentUserId: string) {
     const currentUser = await this.usersRepository.findById(currentUserId);
+
     if (!currentUser) {
       throw new UnauthorizedException({
         code: 'INVALID_TOKEN',
@@ -116,6 +120,7 @@ export class GroupsService {
       if (requestedType === 'all') {
         return true;
       }
+
       return group.type === requestedType;
     });
 
@@ -124,6 +129,7 @@ export class GroupsService {
         const allMemberships = await this.membershipsRepository.findByGroupId(
           group._id.toString(),
         );
+
         const memberCount = allMemberships.filter(
           (membership) => membership.status !== 'removed',
         ).length;
@@ -159,6 +165,7 @@ export class GroupsService {
 
   async getGroupDetails(groupId: string, currentUserId: string) {
     const group = await this.groupsRepository.findById(groupId);
+
     if (!group) {
       throw new NotFoundException({
         code: 'NOT_FOUND',
@@ -168,37 +175,12 @@ export class GroupsService {
 
     await this.assertActiveGroupMembership(groupId, currentUserId);
 
-    const memberships = await this.membershipsRepository.findByGroupId(groupId);
+    const { memberships, expenses, snapshot } =
+      await this.groupBalanceService.getGroupBalanceState(groupId);
+
     const visibleMembers = memberships.filter(
       (membership) => membership.status !== 'removed',
     );
-
-    const allExpenses = await this.expensesRepository.findByGroupId(groupId, true);
-    const settlements = await this.settlementsRepository.findByGroupId(groupId);
-    const expenseSplits = await Promise.all(
-      allExpenses.map((expense) =>
-        this.splitsRepository.findByExpenseId(expense._id.toString()),
-      ),
-    );
-
-    const balanceSnapshot = computeGroupBalanceSnapshot({
-      membershipIds: memberships.map((membership) => membership._id.toString()),
-      expenses: allExpenses.map((expense) => ({
-        expenseId: expense._id.toString(),
-        payerMembershipId: expense.payerMembershipId.toString(),
-        isDeleted: expense.isDeleted,
-      })),
-      splits: expenseSplits.flat().map((split) => ({
-        expenseId: split.expenseId.toString(),
-        membershipId: split.membershipId.toString(),
-        owedShareMinor: split.owedShareMinor,
-      })),
-      settlements: settlements.map((settlement) => ({
-        fromMembershipId: settlement.fromMembershipId.toString(),
-        toMembershipId: settlement.toMembershipId.toString(),
-        amountMinor: settlement.amountMinor,
-      })),
-    });
 
     return {
       group: {
@@ -211,13 +193,14 @@ export class GroupsService {
       members: visibleMembers.map((membership) =>
         this.mapMembershipToMemberRow(membership),
       ),
-      simplifiedBalances: balanceSnapshot.simplifiedDebts,
-      expenseCount: allExpenses.filter((expense) => !expense.isDeleted).length,
+      simplifiedBalances: snapshot.simplifiedDebts,
+      expenseCount: expenses.filter((expense) => !expense.isDeleted).length,
     };
   }
 
   async listGroupMembers(groupId: string, currentUserId: string) {
     const group = await this.groupsRepository.findById(groupId);
+
     if (!group) {
       throw new NotFoundException({
         code: 'NOT_FOUND',
@@ -239,12 +222,184 @@ export class GroupsService {
     };
   }
 
+  async createExpense(
+    groupId: string,
+    dto: CreateGroupExpenseDto,
+    currentUserId: string,
+  ) {
+    const [group, currentUser] = await Promise.all([
+      this.groupsRepository.findById(groupId),
+      this.usersRepository.findById(currentUserId),
+    ]);
+
+    if (!group) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Group not found.',
+      });
+    }
+
+    if (!currentUser) {
+      throw new UnauthorizedException({
+        code: 'INVALID_TOKEN',
+        message: 'Access token is invalid or expired.',
+      });
+    }
+
+    await this.assertActiveGroupMembership(groupId, currentUserId);
+
+    if (dto.currency !== group.defaultCurrency) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: `Expense currency must match the group currency (${group.defaultCurrency}).`,
+      });
+    }
+
+    const memberships = await this.membershipsRepository.findByGroupId(groupId);
+    const membershipById = new Map(
+      memberships.map((membership) => [membership._id.toString(), membership]),
+    );
+
+    const payerMembership = membershipById.get(dto.payerMembershipId);
+
+    if (!payerMembership || payerMembership.status === 'removed') {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'Payer must be a valid active or pending group membership.',
+      });
+    }
+
+    dto.splits.forEach((split) => {
+      const membership = membershipById.get(split.membershipId);
+
+      if (!membership || membership.status === 'removed') {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: `Participant ${split.membershipId} is not a valid group membership.`,
+        });
+      }
+    });
+
+    let calculatedSplits: ReturnType<typeof calculateSplitRows>;
+
+    try {
+      calculatedSplits = calculateSplitRows({
+        amountMinor: dto.amountMinor,
+        splitMethod: dto.splitMethod,
+        participants: dto.splits.map((split) => ({
+          membershipId: split.membershipId,
+          inputValue: split.inputValue ?? null,
+        })),
+      });
+    } catch (error) {
+      throw this.buildSplitValidationException(error);
+    }
+
+    const expense = await this.expensesRepository.create({
+      groupId,
+      createdByUserId: currentUserId,
+      title: dto.title,
+      notes: dto.notes ?? null,
+      amountMinor: dto.amountMinor,
+      currency: dto.currency,
+      dateIncurred: new Date(dto.dateIncurred),
+      payerMembershipId: dto.payerMembershipId,
+      splitMethod: dto.splitMethod,
+      participantCount: calculatedSplits.length,
+      isDeleted: false,
+      deletedAt: null,
+      deletedByUserId: null,
+      version: 1,
+    });
+
+    await this.splitsRepository.insertMany(
+      calculatedSplits.map((split) => ({
+        expenseId: expense._id.toString(),
+        membershipId: split.membershipId,
+        inputType: split.inputType,
+        inputValue: split.inputValue,
+        owedShareMinor: split.owedShareMinor,
+      })),
+    );
+
+    await this.groupBalanceService.recomputeAndPersistGroupBalances(groupId);
+
+    const now = new Date();
+
+    await this.activityRepository.create({
+      groupId,
+      actorUserId: currentUserId,
+      entityType: 'expense',
+      entityId: expense._id.toString(),
+      actionType: 'expense_added',
+      metadata: {
+        title: expense.title,
+        amountMinor: expense.amountMinor,
+        payerMembershipId: expense.payerMembershipId.toString(),
+        splitMethod: expense.splitMethod,
+      },
+    });
+
+    const notificationRows = memberships
+      .filter(
+        (membership) =>
+          membership.status === 'active' &&
+          membership.userId != null &&
+          membership.userId.toString() !== currentUserId,
+      )
+      .map((membership) => ({
+        userId: membership.userId!.toString(),
+        groupId,
+        type: 'expense_added' as const,
+        entityType: 'expense' as const,
+        entityId: expense._id.toString(),
+        title: `New expense in ${group.name}`,
+        body: `${currentUser.name} added ${expense.title}`,
+        isRead: false,
+        readAt: null,
+        deliveryChannels: {
+          inApp: true,
+          email: false,
+        },
+        emailStatus: null,
+      }));
+
+    if (notificationRows.length > 0) {
+      await this.notificationsRepository.createMany(notificationRows);
+    }
+
+    await this.groupsRepository.updateById(groupId, {
+      $set: {
+        lastActivityAt: now,
+      },
+    });
+
+    return {
+      expense: {
+        id: expense._id.toString(),
+        groupId: expense.groupId.toString(),
+        title: expense.title,
+        amountMinor: expense.amountMinor,
+        currency: expense.currency,
+        payerMembershipId: expense.payerMembershipId.toString(),
+        splitMethod: expense.splitMethod,
+        dateIncurred: this.toDateOnlyString(expense.dateIncurred),
+        isDeleted: expense.isDeleted,
+      },
+      splits: calculatedSplits.map((split) => ({
+        membershipId: split.membershipId,
+        owedShareMinor: split.owedShareMinor,
+      })),
+    };
+  }
+
   async updateGroup(
     groupId: string,
     dto: UpdateGroupDto,
     currentUserId: string,
   ) {
     const group = await this.groupsRepository.findById(groupId);
+
     if (!group) {
       throw new NotFoundException({
         code: 'NOT_FOUND',
@@ -333,5 +488,25 @@ export class GroupsService {
       status: membership.status,
       cachedNetBalanceMinor: membership.cachedNetBalanceMinor,
     };
+  }
+
+  private buildSplitValidationException(error: unknown): BadRequestException {
+    const message =
+      error instanceof Error ? error.message : 'Expense input is invalid.';
+
+    const code =
+      message.includes('must equal amountMinor') ||
+      message.includes('must equal 100')
+        ? 'INVALID_SPLIT_TOTAL'
+        : 'VALIDATION_ERROR';
+
+    return new BadRequestException({
+      code,
+      message,
+    });
+  }
+
+  private toDateOnlyString(value: Date): string {
+    return value.toISOString().slice(0, 10);
   }
 }
