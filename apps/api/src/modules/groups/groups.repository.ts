@@ -39,7 +39,7 @@ export class GroupsRepository {
     update: UpdateQuery<Group>,
   ): Promise<GroupDocument | null> {
     return this.groupModel
-      .findByIdAndUpdate(groupId, update, { new: true })
+      .findByIdAndUpdate(groupId, update, { returnDocument: 'after' })
       .exec();
   }
 }

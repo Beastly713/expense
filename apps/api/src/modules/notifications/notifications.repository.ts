@@ -65,7 +65,7 @@ export class NotificationsRepository {
     update: UpdateQuery<Notification>,
   ): Promise<NotificationDocument | null> {
     return this.notificationModel
-      .findByIdAndUpdate(notificationId, update, { new: true })
+      .findByIdAndUpdate(notificationId, update, { returnDocument: 'after' })
       .exec();
   }
 }

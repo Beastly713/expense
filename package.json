@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "packageManager": "pnpm@10.6.0",
-   "scripts": {
+  "scripts": {
     "dev": "concurrently \"pnpm dev:web\" \"pnpm dev:api\"",
     "dev:web": "pnpm --filter @splitwise/web dev",
     "dev:api": "pnpm --filter @splitwise/api dev",
@@ -16,18 +16,25 @@
     "lint": "pnpm -r --if-present lint",
     "typecheck": "pnpm -r --if-present typecheck",
     "format": "prettier . --write",
-    "format:check": "prettier . --check"
+    "format:check": "prettier . --check",
+    "test:api:unit": "pnpm --filter api test:unit",
+    "test:api:integration": "pnpm --filter api test:integration",
+    "test:e2e": "playwright test",
+    "test:all": "bash ./scripts/run-all-tests.sh"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^25.6.0",
     "@typescript-eslint/eslint-plugin": "^8.30.0",
     "@typescript-eslint/parser": "^8.30.0",
+    "concurrently": "^9.2.1",
     "eslint": "^9.24.0",
     "eslint-config-prettier": "^10.1.2",
     "eslint-import-resolver-typescript": "^4.3.5",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-unused-imports": "^4.1.4",
+    "mongodb": "^7.1.1",
     "prettier": "^3.5.3",
-    "typescript": "^5.8.3",
-    "concurrently": "^9.2.1"
+    "typescript": "^5.8.3"
   }
 }

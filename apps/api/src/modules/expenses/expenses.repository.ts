@@ -54,7 +54,7 @@ export class ExpensesRepository {
     update: UpdateQuery<Expense>,
   ): Promise<ExpenseDocument | null> {
     return this.expenseModel
-      .findByIdAndUpdate(expenseId, update, { new: true })
+      .findByIdAndUpdate(expenseId, update, { returnDocument: 'after' })
       .exec();
   }
 }

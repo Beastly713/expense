@@ -72,7 +72,7 @@ export class InvitationsRepository {
     update: UpdateQuery<Invitation>,
   ): Promise<InvitationDocument | null> {
     return this.invitationModel
-      .findByIdAndUpdate(invitationId, update, { new: true })
+      .findByIdAndUpdate(invitationId, update, { returnDocument: 'after' })
       .exec();
   }
 }

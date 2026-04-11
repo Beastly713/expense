@@ -129,7 +129,7 @@ export class MembershipsRepository {
     update: UpdateQuery<Membership>,
   ): Promise<MembershipDocument | null> {
     return this.membershipModel
-      .findByIdAndUpdate(membershipId, update, { new: true })
+      .findByIdAndUpdate(membershipId, update, { returnDocument: 'after' })
       .exec();
   }
 }

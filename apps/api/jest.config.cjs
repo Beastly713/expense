@@ -1,9 +1,9 @@
 module.exports = {
   rootDir: '.',
   testEnvironment: 'node',
-  roots: ['<rootDir>/test'],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'json'],
+  roots: ['<rootDir>/src', '<rootDir>/test'],
   testMatch: ['**/*.spec.ts'],
-  moduleFileExtensions: ['ts', 'js', 'json'],
   transform: {
     '^.+\\.ts$': [
       'ts-jest',
@@ -12,5 +12,12 @@ module.exports = {
       },
     ],
   },
-  clearMocks: true,
+  moduleNameMapper: {
+  '^@splitwise/shared-types$':
+    '<rootDir>/../../packages/shared-types/src/index.jest.ts',
+  '^@splitwise/shared-types/api$':
+    '<rootDir>/../../packages/shared-types/src/api.ts',
+  '^@splitwise/shared-types/domain$':
+    '<rootDir>/../../packages/shared-types/src/domain.ts',
+  },
 };
