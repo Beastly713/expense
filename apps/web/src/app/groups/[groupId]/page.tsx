@@ -4,9 +4,12 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ProtectedRoute } from '@/components/layout/protected-route';
+import { InviteMembersModal } from '@/components/groups/invite-members-modal';
 import {
+  cancelGroupInvite,
   getGroupDetails,
   listGroupInvites,
+  resendGroupInvite,
   type GroupDetailsResponse,
   type GroupMember,
   type InviteItem,
@@ -32,7 +35,7 @@ function formatCurrencyFromMinor(amountMinor: number, currency: string): string 
   }
 }
 
-function formatDateTime(value?: string): string {
+function formatDateTime(value?: string | undefined): string {
   if (!value) {
     return 'Invite sent recently';
   }
@@ -117,35 +120,63 @@ function ActiveMemberCard({
 
 function PendingMemberCard({
   member,
+  isActing,
+  onResend,
+  onCancel,
 }: {
   member: PendingMemberView;
+  isActing: boolean;
+  onResend: () => void;
+  onCancel: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="truncate text-base font-semibold text-neutral-900">
-              {member.email}
-            </h3>
-            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
-              Pending
-            </span>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="truncate text-base font-semibold text-neutral-900">
+                {member.email}
+              </h3>
+              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
+                Pending
+              </span>
+            </div>
+
+            <p className="mt-2 text-sm text-neutral-600">
+              This invitee is already part of the group model and will keep the
+              same membership id when they accept the invite.
+            </p>
+
+            <p className="mt-2 text-xs text-neutral-500">
+              {formatDateTime(member.invitedAt)}
+            </p>
           </div>
 
-          <p className="mt-2 text-sm text-neutral-600">
-            This invitee is already part of the group model and will keep the same
-            membership id when they accept the invite.
-          </p>
-
-          <p className="mt-2 text-xs text-neutral-500">
-            {formatDateTime(member.invitedAt)}
-          </p>
+          <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-neutral-600">
+            Awaiting acceptance
+          </span>
         </div>
 
-        <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-neutral-600">
-          Awaiting acceptance
-        </span>
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={onResend}
+            disabled={isActing || !member.invitationId}
+            className="inline-flex items-center justify-center rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isActing ? 'Working...' : 'Resend invite'}
+          </button>
+
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isActing || !member.invitationId}
+            className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Cancel invite
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -169,6 +200,24 @@ export default function GroupDetailsPage() {
   const [pendingInvites, setPendingInvites] = useState<InviteItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [actingInvitationId, setActingInvitationId] = useState<string | null>(null);
+
+  async function refreshGroupPage() {
+    if (!accessToken || !groupId) {
+      return;
+    }
+
+    const [groupResponse, invitesResponse] = await Promise.all([
+      getGroupDetails(groupId, accessToken),
+      listGroupInvites(groupId, accessToken),
+    ]);
+
+    setGroupDetails(groupResponse);
+    setPendingInvites(invitesResponse.invites);
+  }
 
   useEffect(() => {
     async function loadGroupPage() {
@@ -180,14 +229,10 @@ export default function GroupDetailsPage() {
       try {
         setIsLoading(true);
         setErrorMessage(null);
+        setActionError(null);
+        setActionMessage(null);
 
-        const [groupResponse, invitesResponse] = await Promise.all([
-          getGroupDetails(groupId, accessToken),
-          listGroupInvites(groupId, accessToken),
-        ]);
-
-        setGroupDetails(groupResponse);
-        setPendingInvites(invitesResponse.invites);
+        await refreshGroupPage();
       } catch (error) {
         if (error instanceof ApiError) {
           setErrorMessage(error.message);
@@ -231,6 +276,72 @@ export default function GroupDetailsPage() {
         };
       });
   }, [groupDetails, pendingInvites]);
+
+  async function handleResendInvite(member: PendingMemberView) {
+    if (!accessToken || !groupId || !member.invitationId) {
+      return;
+    }
+
+    try {
+      setActingInvitationId(member.invitationId);
+      setActionError(null);
+      setActionMessage(null);
+
+      const response = await resendGroupInvite(
+        groupId,
+        member.invitationId,
+        accessToken,
+      );
+
+      await refreshGroupPage();
+      setActionMessage(response.message);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setActionError(error.message);
+      } else {
+        setActionError('Failed to resend invite.');
+      }
+    } finally {
+      setActingInvitationId(null);
+    }
+  }
+
+  async function handleCancelInvite(member: PendingMemberView) {
+    if (!accessToken || !groupId || !member.invitationId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Cancel the invite for ${member.email}?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setActingInvitationId(member.invitationId);
+      setActionError(null);
+      setActionMessage(null);
+
+      const response = await cancelGroupInvite(
+        groupId,
+        member.invitationId,
+        accessToken,
+      );
+
+      await refreshGroupPage();
+      setActionMessage(response.message);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setActionError(error.message);
+      } else {
+        setActionError('Failed to cancel invite.');
+      }
+    } finally {
+      setActingInvitationId(null);
+    }
+  }
 
   return (
     <ProtectedRoute>
@@ -285,10 +396,26 @@ export default function GroupDetailsPage() {
                   Add expense
                 </Link>
 
-                <span className="inline-flex items-center justify-center rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-500">
-                  Invite members in next commit
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsInviteModalOpen(true)}
+                  className="inline-flex items-center justify-center rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100"
+                >
+                  Invite members
+                </button>
               </div>
+
+              {actionError ? (
+                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {actionError}
+                </div>
+              ) : null}
+
+              {actionMessage ? (
+                <div className="mt-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                  {actionMessage}
+                </div>
+              ) : null}
             </section>
 
             <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
@@ -328,6 +455,9 @@ export default function GroupDetailsPage() {
                         <PendingMemberCard
                           key={member.membershipId}
                           member={member}
+                          isActing={actingInvitationId === member.invitationId}
+                          onResend={() => void handleResendInvite(member)}
+                          onCancel={() => void handleCancelInvite(member)}
                         />
                       ))}
                     </div>
@@ -389,6 +519,20 @@ export default function GroupDetailsPage() {
               </div>
             </div>
           </div>
+        ) : null}
+
+        {groupId ? (
+          <InviteMembersModal
+            groupId={groupId}
+            accessToken={accessToken}
+            isOpen={isInviteModalOpen}
+            onClose={() => setIsInviteModalOpen(false)}
+            onInvitesCreated={async () => {
+              await refreshGroupPage();
+              setActionError(null);
+              setActionMessage('Invites updated successfully.');
+            }}
+          />
         ) : null}
       </main>
     </ProtectedRoute>
