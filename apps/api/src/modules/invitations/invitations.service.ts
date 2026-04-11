@@ -10,6 +10,7 @@ import { randomBytes } from 'crypto';
 import { ActivityRepository } from '../activity/activity.repository';
 import { GroupsRepository } from '../groups/groups.repository';
 import { MembershipsRepository } from '../memberships/memberships.repository';
+import { UsersRepository } from '../users/users.repository';
 import { CreateGroupInvitesDto } from './dto/create-group-invites.dto';
 import { InvitationsEmailService } from './invitations-email.service';
 import { InvitationsRepository } from './invitations.repository';
@@ -24,6 +25,7 @@ export class InvitationsService {
     private readonly groupsRepository: GroupsRepository,
     private readonly membershipsRepository: MembershipsRepository,
     private readonly activityRepository: ActivityRepository,
+    private readonly usersRepository: UsersRepository,
   ) {}
 
   async createInvites(
@@ -293,6 +295,183 @@ export class InvitationsService {
 
     return {
       message: 'Invite cancelled successfully',
+    };
+  }
+
+  async acceptInvite(token: string, currentUserId: string) {
+    const currentUser = await this.usersRepository.findById(currentUserId);
+    if (!currentUser) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Authentication is required.',
+      });
+    }
+
+    const invitation = await this.invitationsRepository.findByToken(token);
+    if (!invitation) {
+      throw new BadRequestException({
+        code: 'INVALID_TOKEN',
+        message: 'Invite token is invalid.',
+      });
+    }
+
+    if (invitation.status === 'accepted') {
+      throw new ConflictException({
+        code: 'CONFLICT',
+        message: 'Invite has already been accepted.',
+      });
+    }
+
+    if (invitation.status === 'expired') {
+      throw new BadRequestException({
+        code: 'EXPIRED_TOKEN',
+        message: 'Invite has expired.',
+      });
+    }
+
+    if (invitation.status !== 'pending') {
+      throw new BadRequestException({
+        code: 'INVALID_TOKEN',
+        message: 'Invite token is invalid.',
+      });
+    }
+
+    if (
+      invitation.expiresAt &&
+      invitation.expiresAt.getTime() < Date.now()
+    ) {
+      await this.invitationsRepository.updateById(invitation._id.toString(), {
+        $set: {
+          status: 'expired',
+        },
+      });
+
+      throw new BadRequestException({
+        code: 'EXPIRED_TOKEN',
+        message: 'Invite has expired.',
+      });
+    }
+
+    const normalizedUserEmail = this.normalizeEmail(currentUser.email);
+    const normalizedInviteEmail = this.normalizeEmail(invitation.email);
+
+    if (normalizedUserEmail !== normalizedInviteEmail) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Invite email does not match the logged-in account.',
+      });
+    }
+
+    const groupId = invitation.groupId.toString();
+    const group = await this.groupsRepository.findById(groupId);
+    if (!group) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Group not found.',
+      });
+    }
+
+    const existingActiveMembership =
+      await this.membershipsRepository.findActiveByGroupIdAndUserId(
+        groupId,
+        currentUserId,
+      );
+
+    if (existingActiveMembership) {
+      throw new ConflictException({
+        code: 'ALREADY_MEMBER',
+        message: 'You are already an active member of this group.',
+      });
+    }
+
+    const pendingMembership = invitation.membershipId
+      ? await this.membershipsRepository.findById(
+          invitation.membershipId.toString(),
+        )
+      : await this.membershipsRepository.findByInvitationId(
+          invitation._id.toString(),
+        );
+
+    if (!pendingMembership) {
+      throw new BadRequestException({
+        code: 'INVALID_TOKEN',
+        message: 'Invite token is invalid.',
+      });
+    }
+
+    if (pendingMembership.status === 'active') {
+      throw new ConflictException({
+        code: 'CONFLICT',
+        message: 'Invite has already been accepted.',
+      });
+    }
+
+    if (pendingMembership.status !== 'pending') {
+      throw new BadRequestException({
+        code: 'INVALID_TOKEN',
+        message: 'Invite token is invalid.',
+      });
+    }
+
+    const now = new Date();
+
+    const updatedMembership = await this.membershipsRepository.updateById(
+      pendingMembership._id.toString(),
+      {
+        $set: {
+          userId: currentUserId,
+          status: 'active',
+          displayNameSnapshot: currentUser.name,
+          emailSnapshot: normalizedUserEmail,
+          joinedAt: now,
+          leftAt: null,
+        },
+      },
+    );
+
+    if (!updatedMembership) {
+      throw new BadRequestException({
+        code: 'INVALID_TOKEN',
+        message: 'Invite token is invalid.',
+      });
+    }
+
+    await this.invitationsRepository.updateById(invitation._id.toString(), {
+      $set: {
+        status: 'accepted',
+        acceptedAt: now,
+        membershipId: updatedMembership._id,
+      },
+    });
+
+    await this.activityRepository.create({
+      groupId,
+      actorUserId: currentUserId,
+      entityType: 'invitation',
+      entityId: invitation._id.toString(),
+      actionType: 'invite_accepted',
+      metadata: {
+        email: normalizedUserEmail,
+        membershipId: updatedMembership._id.toString(),
+        acceptedByUserId: currentUserId,
+      },
+    });
+
+    await this.groupsRepository.updateById(groupId, {
+      $set: {
+        lastActivityAt: now,
+      },
+    });
+
+    return {
+      group: {
+        id: group._id.toString(),
+        name: group.name,
+      },
+      membership: {
+        membershipId: updatedMembership._id.toString(),
+        status: updatedMembership.status,
+      },
     };
   }
 
