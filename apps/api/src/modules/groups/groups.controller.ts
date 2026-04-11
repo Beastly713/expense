@@ -48,6 +48,14 @@ export class GroupsController {
     return this.groupsService.getGroupDetails(groupId, currentUser.userId);
   }
 
+  @Get(':groupId/members')
+  listGroupMembers(
+    @Param('groupId') groupId: string,
+    @CurrentUser() currentUser: AuthenticatedRequestUser,
+  ) {
+    return this.groupsService.listGroupMembers(groupId, currentUser.userId);
+  }
+
   @Patch(':groupId')
   updateGroup(
     @Param('groupId') groupId: string,

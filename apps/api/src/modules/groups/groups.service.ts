@@ -208,16 +208,34 @@ export class GroupsService {
         defaultCurrency: group.defaultCurrency,
         simplifyDebts: group.simplifyDebts,
       },
-      members: visibleMembers.map((membership) => ({
-        membershipId: membership._id.toString(),
-        userId: membership.userId ? membership.userId.toString() : null,
-        name: membership.displayNameSnapshot,
-        email: membership.emailSnapshot,
-        status: membership.status,
-        cachedNetBalanceMinor: membership.cachedNetBalanceMinor,
-      })),
+      members: visibleMembers.map((membership) =>
+        this.mapMembershipToMemberRow(membership),
+      ),
       simplifiedBalances: balanceSnapshot.simplifiedDebts,
       expenseCount: allExpenses.filter((expense) => !expense.isDeleted).length,
+    };
+  }
+
+  async listGroupMembers(groupId: string, currentUserId: string) {
+    const group = await this.groupsRepository.findById(groupId);
+    if (!group) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Group not found.',
+      });
+    }
+
+    await this.assertActiveGroupMembership(groupId, currentUserId);
+
+    const memberships = await this.membershipsRepository.findByGroupId(groupId);
+    const visibleMembers = memberships.filter(
+      (membership) => membership.status !== 'removed',
+    );
+
+    return {
+      members: visibleMembers.map((membership) =>
+        this.mapMembershipToMemberRow(membership),
+      ),
     };
   }
 
@@ -297,5 +315,23 @@ export class GroupsService {
         message: 'You do not have access to this group.',
       });
     }
+  }
+
+  private mapMembershipToMemberRow(membership: {
+    _id: { toString(): string };
+    userId: { toString(): string } | null;
+    displayNameSnapshot: string;
+    emailSnapshot: string;
+    status: string;
+    cachedNetBalanceMinor: number;
+  }) {
+    return {
+      membershipId: membership._id.toString(),
+      userId: membership.userId ? membership.userId.toString() : null,
+      name: membership.displayNameSnapshot,
+      email: membership.emailSnapshot,
+      status: membership.status,
+      cachedNetBalanceMinor: membership.cachedNetBalanceMinor,
+    };
   }
 }

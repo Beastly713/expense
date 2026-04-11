@@ -58,6 +58,10 @@ export interface SimplifiedBalance {
   amountMinor: number;
 }
 
+export interface ListGroupMembersResponse {
+  members: GroupMember[];
+}
+
 export interface GroupDetailsResponse {
   group: {
     id: string;
@@ -120,6 +124,13 @@ export function listGroups(
 
 export function getGroupDetails(groupId: string, accessToken: string) {
   return apiRequest<GroupDetailsResponse>(`/groups/${groupId}`, {
+    method: 'GET',
+    accessToken,
+  });
+}
+
+export function listGroupMembers(groupId: string, accessToken: string) {
+  return apiRequest<ListGroupMembersResponse>(`/groups/${groupId}/members`, {
     method: 'GET',
     accessToken,
   });
