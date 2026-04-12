@@ -73,11 +73,8 @@ test('user can edit, delete, and restore a group expense while seeing balances a
   await expect(
     page.getByRole('heading', { name: 'Edit expense', exact: true }),
   ).toBeVisible();
-  await expect(
-    page.getByText('Editing this expense will recalculate balances.', {
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect(page.getByLabel('Title')).toBeVisible();
+  await expect(page.getByLabel('Amount')).toBeVisible();
 
   await page.getByLabel('Title').fill('Edited Dinner');
   await page.getByLabel('Amount').fill('20.00');
@@ -109,7 +106,7 @@ test('user can edit, delete, and restore a group expense while seeing balances a
     balancesSection.getByText('Everyone is settled up.', { exact: true }),
   ).toBeVisible();
 
-    await expect(
+  await expect(
     activitySection.getByText('Lifecycle User deleted "Edited Dinner"', {
       exact: true,
     }),

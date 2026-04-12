@@ -39,6 +39,17 @@ function parseMinorToAmountInput(amountMinor: number): string {
   return (amountMinor / 100).toFixed(2);
 }
 
+function buildExpenseReturnHref(
+  groupDetails: GroupDetailsResponse | null,
+  groupId: string,
+): string {
+  if (groupDetails?.group.type === 'direct') {
+    return `/friends/${groupId}`;
+  }
+
+  return `/groups/${groupId}`;
+}
+
 export default function EditExpensePage() {
   const params = useParams<{ expenseId: string }>();
   const router = useRouter();
@@ -238,7 +249,9 @@ export default function EditExpensePage() {
         accessToken,
       );
 
-      router.push(`/groups/${expenseDetails.expense.groupId}`);
+      router.push(
+        buildExpenseReturnHref(groupDetails, expenseDetails.expense.groupId),
+      );
       router.refresh();
     } catch (error) {
       if (error instanceof ApiError) {
@@ -262,7 +275,10 @@ export default function EditExpensePage() {
           <Link
             href={
               expenseDetails?.expense.groupId
-                ? `/groups/${expenseDetails.expense.groupId}`
+                ? buildExpenseReturnHref(
+                    groupDetails,
+                    expenseDetails.expense.groupId,
+                  )
                 : '/dashboard'
             }
             className="text-sm font-medium text-neutral-600 transition hover:text-neutral-900"
@@ -386,21 +402,27 @@ export default function EditExpensePage() {
                     ))}
                   </select>
                   {errors.payerMembershipId ? (
-                    <p className="mt-1 text-xs text-red-600">{errors.payerMembershipId}</p>
+                    <p className="mt-1 text-xs text-red-600">
+                      {errors.payerMembershipId}
+                    </p>
                   ) : null}
                 </label>
               </div>
             </section>
 
             <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-neutral-900">Who is involved</h2>
+              <h2 className="text-lg font-semibold text-neutral-900">
+                Who is involved
+              </h2>
               <p className="mt-1 text-sm text-neutral-600">
-                Select at least 2 participants. Pending invitees remain valid participants.
+                Select at least 2 participants. Pending invitees remain valid
+                participants.
               </p>
 
               <div className="mt-4 space-y-3">
                 {visibleMembers.map((member) => {
                   const checked = selectedMembershipIds.includes(member.membershipId);
+
                   return (
                     <label
                       key={member.membershipId}
@@ -438,10 +460,10 @@ export default function EditExpensePage() {
 
             <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-neutral-900">Split method</h2>
-
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {(['equal', 'exact', 'percent', 'shares'] as const).map((method) => {
                   const selected = splitMethod === method;
+
                   return (
                     <button
                       key={method}
@@ -484,8 +506,8 @@ export default function EditExpensePage() {
                           splitMethod === 'exact'
                             ? 'Amount'
                             : splitMethod === 'percent'
-                            ? 'Percent'
-                            : 'Shares'
+                              ? 'Percent'
+                              : 'Shares'
                         }
                       />
                     </label>
@@ -500,7 +522,6 @@ export default function EditExpensePage() {
 
             <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-neutral-900">Review</h2>
-
               <div className="mt-4 space-y-2 text-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-neutral-500">Group</span>
@@ -568,7 +589,10 @@ export default function EditExpensePage() {
 
             <div className="flex flex-wrap items-center justify-end gap-3">
               <Link
-                href={`/groups/${expenseDetails.expense.groupId}`}
+                href={buildExpenseReturnHref(
+                  groupDetails,
+                  expenseDetails.expense.groupId,
+                )}
                 className="inline-flex items-center justify-center rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100"
               >
                 Cancel

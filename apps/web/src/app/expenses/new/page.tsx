@@ -41,6 +41,17 @@ function formatCurrencyFromMinor(amountMinor: number, currency: string): string 
   }
 }
 
+function buildGroupNavigationHref(
+  groupDetails: GroupDetailsResponse | null,
+  groupId: string,
+): string {
+  if (groupDetails?.group.type === 'direct') {
+    return `/friends/${groupId}`;
+  }
+
+  return `/groups/${groupId}`;
+}
+
 export default function NewExpensePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -223,7 +234,8 @@ export default function NewExpensePage() {
         accessToken,
       );
 
-      router.replace(`/groups/${groupId}`);
+      router.push(buildGroupNavigationHref(groupDetails, groupId));
+      router.refresh();
     } catch (error) {
       if (error instanceof ApiError) {
         setErrors({
@@ -275,7 +287,7 @@ export default function NewExpensePage() {
                 </div>
 
                 <Link
-                  href={`/groups/${groupId}`}
+                  href={buildGroupNavigationHref(groupDetails, groupId)}
                   className="inline-flex items-center justify-center rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100"
                 >
                   Back to group
@@ -559,7 +571,7 @@ export default function NewExpensePage() {
 
                 <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
                   <Link
-                    href={`/groups/${groupId}`}
+                    href={buildGroupNavigationHref(groupDetails, groupId)}
                     className="inline-flex items-center justify-center rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100"
                   >
                     Cancel
