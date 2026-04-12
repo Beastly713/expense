@@ -18,6 +18,7 @@ import { ListGroupExpensesDto } from '../expenses/dto/list-group-expenses.dto';
 import { CreateGroupSettlementDto } from './dto/create-group-settlement.dto';
 import { ListGroupSettlementsDto } from './dto/list-group-settlements.dto';
 import { CreateGroupDto } from './dto/create-group.dto';
+import { CreateDirectGroupDto } from './dto/create-direct-group.dto';
 import { ListGroupsDto } from './dto/list-groups.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupsService } from './groups.service';
@@ -35,6 +36,14 @@ export class GroupsController {
     @CurrentUser() currentUser: AuthenticatedRequestUser,
   ) {
     return this.groupsService.createGroup(dto, currentUser.userId);
+  }
+
+  @Post('direct')
+  createDirectGroup(
+    @Body() dto: CreateDirectGroupDto,
+    @CurrentUser() currentUser: AuthenticatedRequestUser,
+  ) {
+    return this.groupsService.createDirectGroup(dto, currentUser.userId);
   }
 
   @Get()

@@ -21,12 +21,14 @@ import { NotificationsRepository } from '../notifications/notifications.reposito
 import { SettlementsRepository } from '../settlements/settlements.repository';
 import { UsersRepository } from '../users/users.repository';
 import { CreateGroupSettlementDto } from './dto/create-group-settlement.dto';
+import { CreateDirectGroupDto } from './dto/create-direct-group.dto';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { ListGroupSettlementsDto } from './dto/list-group-settlements.dto';
 import { ListGroupsDto } from './dto/list-groups.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupBalanceService } from './group-balance.service';
 import { GroupsRepository } from './groups.repository';
+import type { GroupDocument } from './group.schema';
 
 @Injectable()
 export class GroupsService {
@@ -97,6 +99,116 @@ export class GroupsService {
         defaultCurrency: group.defaultCurrency,
         createdByUserId: group.createdByUserId.toString(),
         createdAt: group.createdAt.toISOString(),
+      },
+    };
+  }
+
+  async createDirectGroup(dto: CreateDirectGroupDto, currentUserId: string) {
+    const [currentUser, targetUser] = await Promise.all([
+      this.usersRepository.findById(currentUserId),
+      this.usersRepository.findByEmail(dto.email),
+    ]);
+
+    if (!currentUser) {
+      throw new UnauthorizedException({
+        code: 'INVALID_TOKEN',
+        message: 'Access token is invalid or expired.',
+      });
+    }
+
+    if (dto.email === currentUser.email.toLowerCase()) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'You cannot create a direct ledger with yourself.',
+      });
+    }
+
+    if (!targetUser) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'User not found for direct ledger.',
+      });
+    }
+
+    const existingDirectGroup = await this.findExistingDirectGroup(
+      currentUser._id.toString(),
+      targetUser._id.toString(),
+    );
+
+    if (existingDirectGroup) {
+      return {
+        group: {
+          id: existingDirectGroup._id.toString(),
+          name: existingDirectGroup.name,
+          type: existingDirectGroup.type,
+          defaultCurrency: existingDirectGroup.defaultCurrency,
+          createdByUserId: existingDirectGroup.createdByUserId.toString(),
+          createdAt: existingDirectGroup.createdAt.toISOString(),
+        },
+      };
+    }
+
+    const now = new Date();
+    const groupName = this.buildDirectGroupName(currentUser.name, targetUser.name);
+
+    const directGroup = await this.groupsRepository.create({
+      type: 'direct',
+      name: groupName,
+      defaultCurrency: currentUser.defaultCurrency,
+      createdByUserId: currentUserId,
+      simplifyDebts: true,
+      status: 'active',
+      lastActivityAt: now,
+    });
+
+    await this.membershipsRepository.createMany([
+      {
+        groupId: directGroup._id.toString(),
+        userId: currentUser._id.toString(),
+        status: 'active',
+        role: 'member',
+        displayNameSnapshot: currentUser.name,
+        emailSnapshot: currentUser.email,
+        joinedAt: now,
+        invitedAt: null,
+        leftAt: null,
+        cachedNetBalanceMinor: 0,
+      },
+      {
+        groupId: directGroup._id.toString(),
+        userId: targetUser._id.toString(),
+        status: 'active',
+        role: 'member',
+        displayNameSnapshot: targetUser.name,
+        emailSnapshot: targetUser.email,
+        joinedAt: now,
+        invitedAt: null,
+        leftAt: null,
+        cachedNetBalanceMinor: 0,
+      },
+    ]);
+
+    await this.activityRepository.create({
+      groupId: directGroup._id.toString(),
+      actorUserId: currentUserId,
+      entityType: 'group',
+      entityId: directGroup._id.toString(),
+      actionType: 'group_created',
+      metadata: {
+        name: directGroup.name,
+        type: directGroup.type,
+        defaultCurrency: directGroup.defaultCurrency,
+      },
+    });
+
+    return {
+      group: {
+        id: directGroup._id.toString(),
+        name: directGroup.name,
+        type: directGroup.type,
+        defaultCurrency: directGroup.defaultCurrency,
+        createdByUserId: directGroup.createdByUserId.toString(),
+        createdAt: directGroup.createdAt.toISOString(),
       },
     };
   }
@@ -766,6 +878,83 @@ export class GroupsService {
         defaultCurrency: updatedGroup.defaultCurrency,
       },
     };
+  }
+
+  private async findExistingDirectGroup(
+    currentUserId: string,
+    targetUserId: string,
+  ): Promise<GroupDocument | null> {
+    const [currentUserMemberships, targetUserMemberships] = await Promise.all([
+      this.membershipsRepository.findActiveByUserId(currentUserId),
+      this.membershipsRepository.findActiveByUserId(targetUserId),
+    ]);
+
+    if (
+      currentUserMemberships.length === 0 ||
+      targetUserMemberships.length === 0
+    ) {
+      return null;
+    }
+
+    const currentUserGroupIds = new Set(
+      currentUserMemberships.map((membership) => membership.groupId.toString()),
+    );
+
+    const candidateGroupIds = Array.from(
+      new Set(
+        targetUserMemberships
+          .map((membership) => membership.groupId.toString())
+          .filter((groupId) => currentUserGroupIds.has(groupId)),
+      ),
+    );
+
+    if (candidateGroupIds.length === 0) {
+      return null;
+    }
+
+    const candidateGroups = await this.groupsRepository.findByIds(candidateGroupIds);
+
+    for (const group of candidateGroups) {
+      if (group.type !== 'direct') {
+        continue;
+      }
+
+      const memberships = await this.membershipsRepository.findByGroupId(
+        group._id.toString(),
+      );
+
+      const activeMemberships = memberships.filter(
+        (membership) => membership.status === 'active',
+      );
+
+      if (activeMemberships.length !== 2) {
+        continue;
+      }
+
+      const activeUserIds = activeMemberships
+        .map((membership) => membership.userId?.toString() ?? null)
+        .filter((value): value is string => value != null)
+        .sort();
+
+      const expectedUserIds = [currentUserId, targetUserId].sort();
+
+      if (
+        activeUserIds.length === 2 &&
+        activeUserIds[0] === expectedUserIds[0] &&
+        activeUserIds[1] === expectedUserIds[1]
+      ) {
+        return group;
+      }
+    }
+
+    return null;
+  }
+
+  private buildDirectGroupName(
+    currentUserName: string,
+    targetUserName: string,
+  ): string {
+    return `${currentUserName} & ${targetUserName}`;
   }
 
   private async assertActiveGroupMembership(
