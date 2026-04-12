@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { calculateSplitRows } from '../balances';
 import { ActivityRepository } from '../activity/activity.repository';
+import { ListActivityDto } from '../activity/dto/list-activity.dto';
 import { CreateGroupExpenseDto } from '../expenses/dto/create-group-expense.dto';
 import { ListGroupExpensesDto } from '../expenses/dto/list-group-expenses.dto';
 import { ExpensesRepository } from '../expenses/expenses.repository';
@@ -35,7 +36,6 @@ export class GroupsService {
 
   async createGroup(dto: CreateGroupDto, currentUserId: string) {
     const currentUser = await this.usersRepository.findById(currentUserId);
-
     if (!currentUser) {
       throw new UnauthorizedException({
         code: 'INVALID_TOKEN',
@@ -121,7 +121,6 @@ export class GroupsService {
       if (requestedType === 'all') {
         return true;
       }
-
       return group.type === requestedType;
     });
 
@@ -130,11 +129,9 @@ export class GroupsService {
         const allMemberships = await this.membershipsRepository.findByGroupId(
           group._id.toString(),
         );
-
         const memberCount = allMemberships.filter(
           (membership) => membership.status !== 'removed',
         ).length;
-
         const currentMembership = membershipByGroupId.get(group._id.toString());
         const netBalanceMinor = currentMembership?.cachedNetBalanceMinor ?? 0;
 
@@ -166,7 +163,6 @@ export class GroupsService {
 
   async getGroupDetails(groupId: string, currentUserId: string) {
     const group = await this.groupsRepository.findById(groupId);
-
     if (!group) {
       throw new NotFoundException({
         code: 'NOT_FOUND',
@@ -201,7 +197,6 @@ export class GroupsService {
 
   async listGroupMembers(groupId: string, currentUserId: string) {
     const group = await this.groupsRepository.findById(groupId);
-
     if (!group) {
       throw new NotFoundException({
         code: 'NOT_FOUND',
@@ -223,13 +218,51 @@ export class GroupsService {
     };
   }
 
+  async getGroupActivity(
+    groupId: string,
+    query: ListActivityDto,
+    currentUserId: string,
+  ) {
+    const group = await this.groupsRepository.findById(groupId);
+    if (!group) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Group not found.',
+      });
+    }
+
+    await this.assertActiveGroupMembership(groupId, currentUserId);
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+
+    const { items, total } =
+      await this.activityRepository.findPageByGroupId(groupId, page, limit);
+
+    return {
+      items: items.map((activity) => ({
+        id: activity._id.toString(),
+        actionType: activity.actionType,
+        entityType: activity.entityType,
+        entityId: activity.entityId.toString(),
+        actorUserId: activity.actorUserId.toString(),
+        metadata: activity.metadata,
+        createdAt: activity.createdAt.toISOString(),
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+      },
+    };
+  }
+
   async listGroupExpenses(
     groupId: string,
     query: ListGroupExpensesDto,
     currentUserId: string,
   ) {
     const group = await this.groupsRepository.findById(groupId);
-
     if (!group) {
       throw new NotFoundException({
         code: 'NOT_FOUND',
@@ -284,7 +317,6 @@ export class GroupsService {
 
   async getGroupBalances(groupId: string, currentUserId: string) {
     const group = await this.groupsRepository.findById(groupId);
-
     if (!group) {
       throw new NotFoundException({
         code: 'NOT_FOUND',
@@ -342,7 +374,6 @@ export class GroupsService {
     );
 
     const payerMembership = membershipById.get(dto.payerMembershipId);
-
     if (!payerMembership || payerMembership.status === 'removed') {
       throw new BadRequestException({
         code: 'VALIDATION_ERROR',
@@ -352,7 +383,6 @@ export class GroupsService {
 
     dto.splits.forEach((split) => {
       const membership = membershipById.get(split.membershipId);
-
       if (!membership || membership.status === 'removed') {
         throw new BadRequestException({
           code: 'VALIDATION_ERROR',
@@ -480,7 +510,6 @@ export class GroupsService {
     currentUserId: string,
   ) {
     const group = await this.groupsRepository.findById(groupId);
-
     if (!group) {
       throw new NotFoundException({
         code: 'NOT_FOUND',
@@ -574,7 +603,6 @@ export class GroupsService {
   private buildSplitValidationException(error: unknown): BadRequestException {
     const message =
       error instanceof Error ? error.message : 'Expense input is invalid.';
-
     const code =
       message.includes('must equal amountMinor') ||
       message.includes('must equal 100')
