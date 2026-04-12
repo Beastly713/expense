@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ActivityModule } from '../activity/activity.module';
 import { AuthModule } from '../auth/auth.module';
@@ -20,7 +20,7 @@ import { GroupsService } from './groups.service';
     UsersModule,
     MembershipsModule,
     ActivityModule,
-    ExpensesModule,
+    forwardRef(() => ExpensesModule),
     SettlementsModule,
     NotificationsModule,
   ],
