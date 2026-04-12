@@ -94,6 +94,14 @@ export interface UpdateExpenseResponse {
   };
 }
 
+export interface DeleteExpenseResponse {
+  message: string;
+}
+
+export interface RestoreExpenseResponse {
+  message: string;
+}
+
 export interface ListGroupExpensesParams {
   page?: number;
   limit?: number;
@@ -144,6 +152,20 @@ export function updateExpense(
   return apiRequest<UpdateExpenseResponse>(`/expenses/${expenseId}`, {
     method: 'PATCH',
     body: input,
+    accessToken,
+  });
+}
+
+export function deleteExpense(expenseId: string, accessToken: string) {
+  return apiRequest<DeleteExpenseResponse>(`/expenses/${expenseId}`, {
+    method: 'DELETE',
+    accessToken,
+  });
+}
+
+export function restoreExpense(expenseId: string, accessToken: string) {
+  return apiRequest<RestoreExpenseResponse>(`/expenses/${expenseId}/restore`, {
+    method: 'POST',
     accessToken,
   });
 }

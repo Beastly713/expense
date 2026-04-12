@@ -4,3 +4,4 @@ export * from './groups';
 export * from './invites';
 export * from './expenses';
 export * from './dashboard';
+export * from './activity';
