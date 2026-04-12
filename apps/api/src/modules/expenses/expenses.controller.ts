@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
+  Post,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -40,6 +42,28 @@ export class ExpensesController {
     return this.expensesService.updateExpense(
       expenseId,
       dto,
+      currentUser.userId,
+    );
+  }
+
+  @Delete(':expenseId')
+  deleteExpense(
+    @Param('expenseId') expenseId: string,
+    @CurrentUser() currentUser: AuthenticatedRequestUser,
+  ) {
+    return this.expensesService.deleteExpense(
+      expenseId,
+      currentUser.userId,
+    );
+  }
+
+  @Post(':expenseId/restore')
+  restoreExpense(
+    @Param('expenseId') expenseId: string,
+    @CurrentUser() currentUser: AuthenticatedRequestUser,
+  ) {
+    return this.expensesService.restoreExpense(
+      expenseId,
       currentUser.userId,
     );
   }

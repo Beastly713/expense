@@ -280,6 +280,230 @@ export class ExpensesService {
     };
   }
 
+  async deleteExpense(expenseId: string, currentUserId: string) {
+    const expense = await this.expensesRepository.findById(expenseId);
+    if (!expense) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Expense not found.',
+      });
+    }
+
+    if (expense.isDeleted) {
+      throw new BadRequestException({
+        code: 'EXPENSE_ALREADY_DELETED',
+        message: 'Expense is already deleted.',
+      });
+    }
+
+    const groupId = expense.groupId.toString();
+
+    const [currentUser, group, memberships] = await Promise.all([
+      this.usersRepository.findById(currentUserId),
+      this.groupsRepository.findById(groupId),
+      this.membershipsRepository.findByGroupId(groupId),
+    ]);
+
+    if (!currentUser) {
+      throw new UnauthorizedException({
+        code: 'INVALID_TOKEN',
+        message: 'Access token is invalid or expired.',
+      });
+    }
+
+    if (!group) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Group not found.',
+      });
+    }
+
+    await this.assertActiveGroupMembership(groupId, currentUserId);
+
+    const now = new Date();
+
+    const deletedExpense = await this.expensesRepository.updateById(expenseId, {
+      $set: {
+        isDeleted: true,
+        deletedAt: now,
+        deletedByUserId: currentUserId,
+      },
+    });
+
+    if (!deletedExpense) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Expense not found.',
+      });
+    }
+
+    await this.groupBalanceService.recomputeAndPersistGroupBalances(groupId);
+
+    await this.activityRepository.create({
+      groupId,
+      actorUserId: currentUserId,
+      entityType: 'expense',
+      entityId: expenseId,
+      actionType: 'expense_deleted',
+      metadata: {
+        title: expense.title,
+        amountMinor: expense.amountMinor,
+        payerMembershipId: expense.payerMembershipId.toString(),
+        splitMethod: expense.splitMethod,
+      },
+    });
+
+    const notificationRows = memberships
+      .filter(
+        (membership) =>
+          membership.status === 'active' &&
+          membership.userId != null &&
+          membership.userId.toString() !== currentUserId,
+      )
+      .map((membership) => ({
+        userId: membership.userId!.toString(),
+        groupId,
+        type: 'expense_deleted' as const,
+        entityType: 'expense' as const,
+        entityId: expenseId,
+        title: `Expense deleted in ${group.name}`,
+        body: `${currentUser.name} deleted ${expense.title}`,
+        isRead: false,
+        readAt: null,
+        deliveryChannels: {
+          inApp: true,
+          email: false,
+        },
+        emailStatus: null,
+      }));
+
+    if (notificationRows.length > 0) {
+      await this.notificationsRepository.createMany(notificationRows);
+    }
+
+    await this.groupsRepository.updateById(groupId, {
+      $set: {
+        lastActivityAt: now,
+      },
+    });
+
+    return {
+      message: 'Expense deleted successfully',
+    };
+  }
+
+  async restoreExpense(expenseId: string, currentUserId: string) {
+    const expense = await this.expensesRepository.findById(expenseId);
+    if (!expense) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Expense not found.',
+      });
+    }
+
+    if (!expense.isDeleted) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'Expense is not deleted.',
+      });
+    }
+
+    const groupId = expense.groupId.toString();
+
+    const [currentUser, group, memberships] = await Promise.all([
+      this.usersRepository.findById(currentUserId),
+      this.groupsRepository.findById(groupId),
+      this.membershipsRepository.findByGroupId(groupId),
+    ]);
+
+    if (!currentUser) {
+      throw new UnauthorizedException({
+        code: 'INVALID_TOKEN',
+        message: 'Access token is invalid or expired.',
+      });
+    }
+
+    if (!group) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Group not found.',
+      });
+    }
+
+    await this.assertActiveGroupMembership(groupId, currentUserId);
+
+    const now = new Date();
+
+    const restoredExpense = await this.expensesRepository.updateById(expenseId, {
+      $set: {
+        isDeleted: false,
+        deletedAt: null,
+        deletedByUserId: null,
+      },
+    });
+
+    if (!restoredExpense) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Expense not found.',
+      });
+    }
+
+    await this.groupBalanceService.recomputeAndPersistGroupBalances(groupId);
+
+    await this.activityRepository.create({
+      groupId,
+      actorUserId: currentUserId,
+      entityType: 'expense',
+      entityId: expenseId,
+      actionType: 'expense_restored',
+      metadata: {
+        title: expense.title,
+        amountMinor: expense.amountMinor,
+        payerMembershipId: expense.payerMembershipId.toString(),
+        splitMethod: expense.splitMethod,
+      },
+    });
+
+    const notificationRows = memberships
+      .filter(
+        (membership) =>
+          membership.status === 'active' &&
+          membership.userId != null &&
+          membership.userId.toString() !== currentUserId,
+      )
+      .map((membership) => ({
+        userId: membership.userId!.toString(),
+        groupId,
+        type: 'expense_restored' as const,
+        entityType: 'expense' as const,
+        entityId: expenseId,
+        title: `Expense restored in ${group.name}`,
+        body: `${currentUser.name} restored ${expense.title}`,
+        isRead: false,
+        readAt: null,
+        deliveryChannels: {
+          inApp: true,
+          email: false,
+        },
+        emailStatus: null,
+      }));
+
+    if (notificationRows.length > 0) {
+      await this.notificationsRepository.createMany(notificationRows);
+    }
+
+    await this.groupsRepository.updateById(groupId, {
+      $set: {
+        lastActivityAt: now,
+      },
+    });
+
+    return {
+      message: 'Expense restored successfully',
+    };
+  }
+
   private async assertActiveGroupMembership(
     groupId: string,
     userId: string,
