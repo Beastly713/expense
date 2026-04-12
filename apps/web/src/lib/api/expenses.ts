@@ -1,6 +1,7 @@
 import { apiRequest } from './client';
 
 export type ExpenseSplitMethod = 'equal' | 'exact' | 'percent' | 'shares';
+export type ExpenseSplitInputType = ExpenseSplitMethod;
 
 export interface CreateGroupExpenseSplitInput {
   membershipId: string;
@@ -17,6 +18,8 @@ export interface CreateGroupExpenseInput {
   splitMethod: ExpenseSplitMethod;
   splits: CreateGroupExpenseSplitInput[];
 }
+
+export type UpdateExpenseInput = CreateGroupExpenseInput;
 
 export interface ExpenseListItem {
   id: string;
@@ -51,9 +54,13 @@ export interface ExpenseDetailsResponse {
     payerMembershipId: string;
     splitMethod: ExpenseSplitMethod;
     isDeleted: boolean;
+    version: number;
+    updatedAt: string;
   };
   splits: Array<{
     membershipId: string;
+    inputType: ExpenseSplitInputType;
+    inputValue: number | null;
     owedShareMinor: number;
   }>;
 }
@@ -74,6 +81,17 @@ export interface CreateGroupExpenseResponse {
     membershipId: string;
     owedShareMinor: number;
   }>;
+}
+
+export interface UpdateExpenseResponse {
+  expense: {
+    id: string;
+    title: string;
+    amountMinor: number;
+    splitMethod: ExpenseSplitMethod;
+    updatedAt: string;
+    version: number;
+  };
 }
 
 export interface ListGroupExpensesParams {
@@ -113,6 +131,18 @@ export function createGroupExpense(
 ) {
   return apiRequest<CreateGroupExpenseResponse>(`/groups/${groupId}/expenses`, {
     method: 'POST',
+    body: input,
+    accessToken,
+  });
+}
+
+export function updateExpense(
+  expenseId: string,
+  input: UpdateExpenseInput,
+  accessToken: string,
+) {
+  return apiRequest<UpdateExpenseResponse>(`/expenses/${expenseId}`, {
+    method: 'PATCH',
     body: input,
     accessToken,
   });
