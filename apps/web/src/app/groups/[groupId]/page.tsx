@@ -687,13 +687,17 @@ export default function GroupDetailsPage() {
                           key={`${balance.fromMembershipId}:${balance.toMembershipId}`}
                           className="rounded-xl border border-neutral-200 p-4"
                         >
-                          <p className="text-sm font-medium text-neutral-900">
-                            {memberNameByMembershipId.get(balance.fromMembershipId) ??
-                              'Unknown member'}{' '}
-                            owes{' '}
-                            {memberNameByMembershipId.get(balance.toMembershipId) ??
-                              'Unknown member'}
-                          </p>
+                          <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-neutral-900">
+                            <span>
+                              {memberNameByMembershipId.get(balance.fromMembershipId) ??
+                                'Unknown member'}
+                            </span>
+                            <span className="text-neutral-500">owes</span>
+                            <span>
+                              {memberNameByMembershipId.get(balance.toMembershipId) ??
+                                'Unknown member'}
+                            </span>
+                          </div>
                           <p className="mt-1 text-sm text-neutral-600">
                             {formatCurrencyFromMinor(
                               balance.amountMinor,

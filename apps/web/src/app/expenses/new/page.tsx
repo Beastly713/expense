@@ -289,10 +289,15 @@ export default function NewExpensePage() {
 
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div className="sm:col-span-2">
-                    <label className="mb-2 block text-sm font-medium text-neutral-800">
+                    <label
+                      htmlFor="expense-title"
+                      className="mb-2 block text-sm font-medium text-neutral-800"
+                    >
                       Title
                     </label>
                     <input
+                      id="expense-title"
+                      aria-label="Title"
                       value={title}
                       onChange={(event) => setTitle(event.target.value)}
                       placeholder="Dinner"
@@ -304,10 +309,15 @@ export default function NewExpensePage() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-neutral-800">
+                    <label
+                      htmlFor="expense-amount"
+                      className="mb-2 block text-sm font-medium text-neutral-800"
+                    >
                       Amount
                     </label>
                     <input
+                      id="expense-amount"
+                      aria-label="Amount"
                       value={amount}
                       onChange={(event) => setAmount(event.target.value)}
                       inputMode="decimal"
@@ -320,10 +330,15 @@ export default function NewExpensePage() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-neutral-800">
+                    <label
+                      htmlFor="expense-date"
+                      className="mb-2 block text-sm font-medium text-neutral-800"
+                    >
                       Date
                     </label>
                     <input
+                      id="expense-date"
+                      aria-label="Date"
                       type="date"
                       value={dateIncurred}
                       onChange={(event) => setDateIncurred(event.target.value)}
@@ -337,10 +352,15 @@ export default function NewExpensePage() {
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="mb-2 block text-sm font-medium text-neutral-800">
+                    <label
+                      htmlFor="expense-notes"
+                      className="mb-2 block text-sm font-medium text-neutral-800"
+                    >
                       Notes
                     </label>
                     <textarea
+                      id="expense-notes"
+                      aria-label="Notes"
                       value={notes}
                       onChange={(event) => setNotes(event.target.value)}
                       rows={4}
@@ -355,10 +375,15 @@ export default function NewExpensePage() {
                 <h2 className="text-lg font-semibold text-neutral-900">Who paid</h2>
 
                 <div className="mt-4">
-                  <label className="mb-2 block text-sm font-medium text-neutral-800">
+                  <label
+                    htmlFor="expense-payer"
+                    className="mb-2 block text-sm font-medium text-neutral-800"
+                  >
                     Payer
                   </label>
                   <select
+                    id="expense-payer"
+                    aria-label="Payer"
                     value={payerMembershipId}
                     onChange={(event) => setPayerMembershipId(event.target.value)}
                     className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 outline-none transition focus:border-neutral-900"
@@ -456,6 +481,8 @@ export default function NewExpensePage() {
                         </div>
 
                         <input
+                          id={`split-input-${participant.membershipId}`}
+                          aria-label={`Split input for ${participant.name}`}
                           value={inputValuesByMembershipId[participant.membershipId] ?? ''}
                           onChange={(event) =>
                             updateSplitInput(participant.membershipId, event.target.value)
@@ -463,7 +490,7 @@ export default function NewExpensePage() {
                           inputMode="decimal"
                           placeholder={
                             splitMethod === 'exact'
-                              ? 'Exact amount'
+                              ? 'Amount'
                               : splitMethod === 'percent'
                                 ? 'Percent'
                                 : 'Shares'

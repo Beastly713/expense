@@ -19,23 +19,51 @@ async function getPendingInviteToken(email: string): Promise<string> {
 
   try {
     await client.connect();
-    const db = client.db();
 
-    const invite = await db.collection('invitations').findOne(
-      {
-        email: email.toLowerCase(),
-        status: 'pending',
-      },
-      {
-        sort: { createdAt: -1 },
-      },
-    );
+    const timeoutMs = 10_000;
+    const pollIntervalMs = 250;
+    const startedAt = Date.now();
 
-    if (!invite || typeof invite.token !== 'string') {
-      throw new Error(`Pending invite not found for ${email}`);
+    while (Date.now() - startedAt < timeoutMs) {
+      const admin = client.db().admin();
+      const databases = await admin.listDatabases();
+
+      for (const databaseInfo of databases.databases) {
+        const dbName = databaseInfo.name;
+
+        if (!dbName) {
+          continue;
+        }
+
+        const db = client.db(dbName);
+
+        const collections = await db
+          .listCollections({ name: 'invitations' }, { nameOnly: true })
+          .toArray();
+
+        if (collections.length === 0) {
+          continue;
+        }
+
+        const invite = await db.collection('invitations').findOne(
+          {
+            email: email.toLowerCase(),
+            status: 'pending',
+          },
+          {
+            sort: { createdAt: -1 },
+          },
+        );
+
+        if (invite && typeof invite.token === 'string') {
+          return invite.token;
+        }
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
     }
 
-    return invite.token;
+    throw new Error(`Pending invite not found for ${email}`);
   } finally {
     await client.close();
   }
@@ -69,15 +97,14 @@ test('user A invites user B and user B accepts invite', async ({ browser, page }
   await page.getByRole('button', { name: 'Send invites', exact: true }).click();
 
   await expect(page.getByText('Invite sent successfully.')).toBeVisible();
-  const pendingInvitesSection = page
-  .locator('section')
-  .filter({
+
+  const pendingInvitesSection = page.locator('section').filter({
     has: page.getByRole('heading', { name: 'Pending invites' }),
   });
 
-await expect(
-  pendingInvitesSection.locator('p').filter({ hasText: userBEmail }).first(),
-).toBeVisible();
+  await expect(
+    pendingInvitesSection.locator('p').filter({ hasText: userBEmail }).first(),
+  ).toBeVisible();
 
   const inviteToken = await getPendingInviteToken(userBEmail);
 
@@ -95,38 +122,43 @@ await expect(
   await pageB.getByLabel('Confirm password', { exact: true }).fill(password);
   await pageB.getByRole('button', { name: 'Sign up', exact: true }).click();
 
-  await expect(pageB.getByText('Accept this group invite')).toBeVisible();
+  await expect(
+    pageB.getByRole('heading', {
+      name: 'Accept this group invite',
+      exact: true,
+    }),
+  ).toBeVisible();
   await pageB.getByRole('button', { name: 'Accept invite', exact: true }).click();
 
   await expect(pageB.getByText('You joined the group')).toBeVisible();
   await pageB.getByRole('link', { name: 'Open group' }).click();
 
   await expect(pageB).toHaveURL(/\/groups\/.+/);
-await expect(
-  pageB.getByRole('heading', { name: 'Playwright Trip', exact: true }),
-).toBeVisible();
+  await expect(
+    pageB.getByRole('heading', { name: 'Playwright Trip', exact: true }),
+  ).toBeVisible();
 
-const activeMembersSectionB = pageB.locator('section').filter({
-  has: pageB.getByRole('heading', { name: 'Members' }),
-});
+  const activeMembersSectionB = pageB.locator('section').filter({
+    has: pageB.getByRole('heading', { name: 'Members' }),
+  });
 
-await expect(activeMembersSectionB.getByText('User B', { exact: true })).toBeVisible();
+  await expect(activeMembersSectionB.getByText('User B', { exact: true })).toBeVisible();
 
   await page.reload();
 
-const pendingInvitesSectionAfterAccept = page.locator('section').filter({
-  has: page.getByRole('heading', { name: 'Pending invites' }),
-});
+  const pendingInvitesSectionAfterAccept = page.locator('section').filter({
+    has: page.getByRole('heading', { name: 'Pending invites' }),
+  });
 
-await expect(
-  pendingInvitesSectionAfterAccept.locator('p').filter({ hasText: userBEmail }),
-).toHaveCount(0);
+  await expect(
+    pendingInvitesSectionAfterAccept.locator('p').filter({ hasText: userBEmail }),
+  ).toHaveCount(0);
 
-const activeMembersSectionA = page.locator('section').filter({
-  has: page.getByRole('heading', { name: 'Members' }),
-});
+  const activeMembersSectionA = page.locator('section').filter({
+    has: page.getByRole('heading', { name: 'Members' }),
+  });
 
-await expect(activeMembersSectionA.getByText('User B', { exact: true })).toBeVisible();
+  await expect(activeMembersSectionA.getByText('User B', { exact: true })).toBeVisible();
 
   await contextB.close();
 });
