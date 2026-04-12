@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import type { SettlementMethod } from '@splitwise/shared-types';
 import type { Model } from 'mongoose';
-
 import {
   Settlement,
   type SettlementDocument,
@@ -40,5 +39,32 @@ export class SettlementsRepository {
       .find({ groupId })
       .sort({ settledAt: -1, createdAt: -1 })
       .exec();
+  }
+
+  async findPageByGroupId(
+    groupId: string,
+    page: number,
+    limit: number,
+  ): Promise<{
+    items: SettlementDocument[];
+    total: number;
+  }> {
+    const filter = { groupId };
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      this.settlementModel
+        .find(filter)
+        .sort({ settledAt: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.settlementModel.countDocuments(filter).exec(),
+    ]);
+
+    return {
+      items,
+      total,
+    };
   }
 }

@@ -5,7 +5,11 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { calculateSplitRows } from '../balances';
+import {
+  buildDebtAmountLookup,
+  calculateSplitRows,
+  validateSettlementAgainstDebtLookup,
+} from '../balances';
 import { ActivityRepository } from '../activity/activity.repository';
 import { ListActivityDto } from '../activity/dto/list-activity.dto';
 import { CreateGroupExpenseDto } from '../expenses/dto/create-group-expense.dto';
@@ -14,8 +18,11 @@ import { ExpensesRepository } from '../expenses/expenses.repository';
 import { SplitsRepository } from '../expenses/splits.repository';
 import { MembershipsRepository } from '../memberships/memberships.repository';
 import { NotificationsRepository } from '../notifications/notifications.repository';
+import { SettlementsRepository } from '../settlements/settlements.repository';
 import { UsersRepository } from '../users/users.repository';
+import { CreateGroupSettlementDto } from './dto/create-group-settlement.dto';
 import { CreateGroupDto } from './dto/create-group.dto';
+import { ListGroupSettlementsDto } from './dto/list-group-settlements.dto';
 import { ListGroupsDto } from './dto/list-groups.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupBalanceService } from './group-balance.service';
@@ -31,6 +38,7 @@ export class GroupsService {
     private readonly expensesRepository: ExpensesRepository,
     private readonly splitsRepository: SplitsRepository,
     private readonly notificationsRepository: NotificationsRepository,
+    private readonly settlementsRepository: SettlementsRepository,
     private readonly groupBalanceService: GroupBalanceService,
   ) {}
 
@@ -335,6 +343,202 @@ export class GroupsService {
     };
   }
 
+  async listGroupSettlements(
+    groupId: string,
+    query: ListGroupSettlementsDto,
+    currentUserId: string,
+  ) {
+    const group = await this.groupsRepository.findById(groupId);
+
+    if (!group) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Group not found.',
+      });
+    }
+
+    await this.assertActiveGroupMembership(groupId, currentUserId);
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+
+    const { items, total } =
+      await this.settlementsRepository.findPageByGroupId(groupId, page, limit);
+
+    return {
+      items: items.map((settlement) => ({
+        id: settlement._id.toString(),
+        fromMembershipId: settlement.fromMembershipId.toString(),
+        toMembershipId: settlement.toMembershipId.toString(),
+        amountMinor: settlement.amountMinor,
+        currency: settlement.currency,
+        method: settlement.method,
+        note: settlement.note,
+        settledAt: settlement.settledAt.toISOString(),
+        createdAt: settlement.createdAt.toISOString(),
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+      },
+    };
+  }
+
+  async createSettlement(
+    groupId: string,
+    dto: CreateGroupSettlementDto,
+    currentUserId: string,
+  ) {
+    const [group, currentUser] = await Promise.all([
+      this.groupsRepository.findById(groupId),
+      this.usersRepository.findById(currentUserId),
+    ]);
+
+    if (!group) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Group not found.',
+      });
+    }
+
+    if (!currentUser) {
+      throw new UnauthorizedException({
+        code: 'INVALID_TOKEN',
+        message: 'Access token is invalid or expired.',
+      });
+    }
+
+    await this.assertActiveGroupMembership(groupId, currentUserId);
+
+    if (dto.currency !== group.defaultCurrency) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: `Settlement currency must match the group currency (${group.defaultCurrency}).`,
+      });
+    }
+
+    const memberships = await this.membershipsRepository.findByGroupId(groupId);
+    const membershipById = new Map(
+      memberships.map((membership) => [membership._id.toString(), membership] as const),
+    );
+
+    const fromMembership = membershipById.get(dto.fromMembershipId);
+    const toMembership = membershipById.get(dto.toMembershipId);
+
+    if (
+      !fromMembership ||
+      !toMembership ||
+      fromMembership.status === 'removed' ||
+      toMembership.status === 'removed'
+    ) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message:
+          'Settlement memberships must be valid active or pending group memberships.',
+      });
+    }
+
+    const { snapshot } =
+      await this.groupBalanceService.getGroupBalanceState(groupId);
+
+    try {
+      const debtAmountLookup = buildDebtAmountLookup(
+        snapshot.normalizedDebtEdges,
+      );
+
+      validateSettlementAgainstDebtLookup(
+        {
+          fromMembershipId: dto.fromMembershipId,
+          toMembershipId: dto.toMembershipId,
+          amountMinor: dto.amountMinor,
+        },
+        debtAmountLookup,
+      );
+    } catch (error) {
+      throw this.buildSettlementValidationException(error);
+    }
+
+    const now = new Date();
+
+    const settlement = await this.settlementsRepository.create({
+      groupId,
+      fromMembershipId: dto.fromMembershipId,
+      toMembershipId: dto.toMembershipId,
+      amountMinor: dto.amountMinor,
+      currency: dto.currency,
+      method: dto.method,
+      note: dto.note ?? null,
+      createdByUserId: currentUserId,
+      settledAt: now,
+    });
+
+    await this.groupBalanceService.recomputeAndPersistGroupBalances(groupId);
+
+    await this.activityRepository.create({
+      groupId,
+      actorUserId: currentUserId,
+      entityType: 'settlement',
+      entityId: settlement._id.toString(),
+      actionType: 'settlement_recorded',
+      metadata: {
+        amountMinor: settlement.amountMinor,
+        fromMembershipId: settlement.fromMembershipId.toString(),
+        toMembershipId: settlement.toMembershipId.toString(),
+        method: settlement.method,
+        note: settlement.note,
+      },
+    });
+
+    const notificationRows = memberships
+      .filter(
+        (membership) =>
+          membership.status === 'active' &&
+          membership.userId != null &&
+          membership.userId.toString() !== currentUserId,
+      )
+      .map((membership) => ({
+        userId: membership.userId!.toString(),
+        groupId,
+        type: 'settlement_recorded' as const,
+        entityType: 'settlement' as const,
+        entityId: settlement._id.toString(),
+        title: `Settlement recorded in ${group.name}`,
+        body: `${currentUser.name} recorded a cash settlement`,
+        isRead: false,
+        readAt: null,
+        deliveryChannels: {
+          inApp: true,
+          email: false,
+        },
+        emailStatus: null,
+      }));
+
+    if (notificationRows.length > 0) {
+      await this.notificationsRepository.createMany(notificationRows);
+    }
+
+    await this.groupsRepository.updateById(groupId, {
+      $set: {
+        lastActivityAt: now,
+      },
+    });
+
+    return {
+      settlement: {
+        id: settlement._id.toString(),
+        groupId: settlement.groupId.toString(),
+        fromMembershipId: settlement.fromMembershipId.toString(),
+        toMembershipId: settlement.toMembershipId.toString(),
+        amountMinor: settlement.amountMinor,
+        currency: settlement.currency,
+        method: settlement.method,
+        note: settlement.note,
+        settledAt: settlement.settledAt.toISOString(),
+      },
+    };
+  }
+
   async createExpense(
     groupId: string,
     dto: CreateGroupExpenseDto,
@@ -607,6 +811,25 @@ export class GroupsService {
       message.includes('must equal amountMinor') ||
       message.includes('must equal 100')
         ? 'INVALID_SPLIT_TOTAL'
+        : 'VALIDATION_ERROR';
+
+    return new BadRequestException({
+      code,
+      message,
+    });
+  }
+
+  private buildSettlementValidationException(
+    error: unknown,
+  ): BadRequestException {
+    const message =
+      error instanceof Error ? error.message : 'Settlement input is invalid.';
+
+    const code =
+      message.includes('current owed amount') ||
+      message.includes('current debt relation') ||
+      message.includes('cannot be the same')
+        ? 'INVALID_SETTLEMENT_AMOUNT'
         : 'VALIDATION_ERROR';
 
     return new BadRequestException({
