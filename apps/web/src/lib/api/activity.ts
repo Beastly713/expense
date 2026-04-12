@@ -27,6 +27,20 @@ export interface GroupActivityResponse {
   };
 }
 
+export interface GlobalActivityItem extends GroupActivityItem {
+  groupId: string;
+  groupName: string;
+}
+
+export interface GlobalActivityResponse {
+  items: GlobalActivityItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+}
+
 export interface ListActivityParams {
   page?: number;
   limit?: number;
@@ -54,6 +68,19 @@ export function listGroupActivity(
 ) {
   return apiRequest<GroupActivityResponse>(
     `/groups/${groupId}/activity${buildActivityQuery(params)}`,
+    {
+      method: 'GET',
+      accessToken,
+    },
+  );
+}
+
+export function listGlobalActivity(
+  accessToken: string,
+  params?: ListActivityParams,
+) {
+  return apiRequest<GlobalActivityResponse>(
+    `/activity${buildActivityQuery(params)}`,
     {
       method: 'GET',
       accessToken,
