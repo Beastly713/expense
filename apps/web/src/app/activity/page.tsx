@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+
 import { ProtectedRoute } from '@/components/layout/protected-route';
 import {
   listGlobalActivity,

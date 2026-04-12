@@ -3,8 +3,10 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+
 import { InviteMembersModal } from '@/components/groups/invite-members-modal';
 import { ProtectedRoute } from '@/components/layout/protected-route';
+import { SettleUpModal } from '@/components/settlements/settle-up-modal';
 import {
   cancelGroupInvite,
   deleteExpense,
@@ -13,6 +15,7 @@ import {
   listGroupActivity,
   listGroupExpenses,
   listGroupInvites,
+  listGroupSettlements,
   resendGroupInvite,
   restoreExpense,
   type ExpenseListItem,
@@ -21,6 +24,8 @@ import {
   type GroupDetailsResponse,
   type GroupMember,
   type InviteItem,
+  type SettlementHistoryItem,
+  type SimplifiedBalance,
 } from '@/lib/api';
 import { ApiError } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth';
@@ -60,6 +65,32 @@ function formatDateTime(value?: string): string {
     return value;
   }
   return parsed.toLocaleString();
+}
+
+function getMemberDisplayName(
+  membershipId: string,
+  members: GroupMember[],
+): string {
+  const member = members.find((item) => item.membershipId === membershipId);
+
+  if (!member) {
+    return 'Unknown member';
+  }
+
+  return member.name || member.email || 'Unknown member';
+}
+
+function describeSettlementItem(
+  item: SettlementHistoryItem,
+  members: GroupMember[],
+): string {
+  return `${getMemberDisplayName(
+    item.fromMembershipId,
+    members,
+  )} paid ${getMemberDisplayName(item.toMembershipId, members)} ${formatCurrencyFromMinor(
+    item.amountMinor,
+    item.currency,
+  )} in cash`;
 }
 
 function SectionCard({
@@ -210,6 +241,12 @@ export default function GroupDetailsPage() {
   const [expenses, setExpenses] = useState<ExpenseListItem[]>([]);
   const [invites, setInvites] = useState<InviteItem[]>([]);
   const [activityItems, setActivityItems] = useState<GroupActivityItem[]>([]);
+  const [settlementItems, setSettlementItems] = useState<SettlementHistoryItem[]>(
+    [],
+  );
+  const [settlementBalance, setSettlementBalance] =
+    useState<SimplifiedBalance | null>(null);
+  const [isSettleUpModalOpen, setIsSettleUpModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -227,6 +264,7 @@ export default function GroupDetailsPage() {
       setExpenses([]);
       setInvites([]);
       setActivityItems([]);
+      setSettlementItems([]);
       setIsLoading(false);
       return;
     }
@@ -236,24 +274,27 @@ export default function GroupDetailsPage() {
       setErrorMessage(null);
 
       const [
-        groupResponse,
-        balancesResponse,
-        expensesResponse,
-        invitesResponse,
-        activityResponse,
+        nextGroupDetails,
+        nextBalances,
+        nextExpenses,
+        nextActivity,
+        nextInvites,
+        nextSettlements,
       ] = await Promise.all([
         getGroupDetails(groupId, accessToken),
         getGroupBalances(groupId, accessToken),
         listGroupExpenses(groupId, accessToken, { page: 1, limit: 20 }),
-        listGroupInvites(groupId, accessToken),
         listGroupActivity(groupId, accessToken, { page: 1, limit: 10 }),
+        listGroupInvites(groupId, accessToken),
+        listGroupSettlements(groupId, accessToken, { page: 1, limit: 10 }),
       ]);
 
-      setGroupDetails(groupResponse);
-      setBalances(balancesResponse);
-      setExpenses(expensesResponse.items);
-      setInvites(invitesResponse.invites);
-      setActivityItems(activityResponse.items);
+      setGroupDetails(nextGroupDetails);
+      setBalances(nextBalances);
+      setExpenses(nextExpenses.items);
+      setActivityItems(nextActivity.items);
+      setInvites(nextInvites.invites);
+      setSettlementItems(nextSettlements.items);
     } catch (error) {
       if (error instanceof ApiError) {
         setErrorMessage(error.message);
@@ -307,6 +348,16 @@ export default function GroupDetailsPage() {
         };
       });
   }, [groupDetails?.members, invites]);
+
+  function openSettleUpModal(balance: SimplifiedBalance) {
+    setSettlementBalance(balance);
+    setIsSettleUpModalOpen(true);
+  }
+
+  function closeSettleUpModal() {
+    setSettlementBalance(null);
+    setIsSettleUpModalOpen(false);
+  }
 
   async function handleResendInvite(invitationId: string) {
     if (!accessToken) {
@@ -684,25 +735,70 @@ export default function GroupDetailsPage() {
                     <div className="space-y-3">
                       {balances.simplifiedBalances.map((balance) => (
                         <div
-                          key={`${balance.fromMembershipId}:${balance.toMembershipId}`}
+                          key={`${balance.fromMembershipId}-${balance.toMembershipId}`}
+                          className="flex flex-col gap-3 rounded-xl border border-neutral-200 p-4 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-neutral-900">
+                              <span>
+                                {getMemberDisplayName(
+                                  balance.fromMembershipId,
+                                  groupDetails.members,
+                                )}
+                              </span>
+                              <span className="text-neutral-500">owes</span>
+                              <span>
+                                {getMemberDisplayName(
+                                  balance.toMembershipId,
+                                  groupDetails.members,
+                                )}
+                              </span>
+                            </div>
+
+                            <p className="mt-1 text-sm text-neutral-600">
+                              {formatCurrencyFromMinor(
+                                balance.amountMinor,
+                                groupDetails.group.defaultCurrency,
+                              )}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => openSettleUpModal(balance)}
+                            className="inline-flex items-center justify-center rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100"
+                          >
+                            Settle up
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </SectionCard>
+
+                <SectionCard
+                  title="Settlement history"
+                  subtitle="Manual cash settlements recorded for this group."
+                >
+                  {settlementItems.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-5 text-sm text-neutral-600">
+                      No settlements recorded yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {settlementItems.map((item) => (
+                        <div
+                          key={item.id}
                           className="rounded-xl border border-neutral-200 p-4"
                         >
-                          <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-neutral-900">
-                            <span>
-                              {memberNameByMembershipId.get(balance.fromMembershipId) ??
-                                'Unknown member'}
-                            </span>
-                            <span className="text-neutral-500">owes</span>
-                            <span>
-                              {memberNameByMembershipId.get(balance.toMembershipId) ??
-                                'Unknown member'}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-sm text-neutral-600">
-                            {formatCurrencyFromMinor(
-                              balance.amountMinor,
-                              groupDetails.group.defaultCurrency,
-                            )}
+                          <p className="text-sm font-medium text-neutral-900">
+                            {describeSettlementItem(item, groupDetails.members)}
+                          </p>
+                          {item.note ? (
+                            <p className="mt-1 text-sm text-neutral-600">{item.note}</p>
+                          ) : null}
+                          <p className="mt-2 text-xs text-neutral-500">
+                            {formatDateTime(item.settledAt)}
                           </p>
                         </div>
                       ))}
@@ -774,6 +870,17 @@ export default function GroupDetailsPage() {
           isOpen={isInviteModalOpen}
           onClose={() => setIsInviteModalOpen(false)}
           onInvitesCreated={loadGroupData}
+        />
+
+        <SettleUpModal
+          groupId={groupId}
+          accessToken={accessToken}
+          currency={groupDetails?.group.defaultCurrency ?? 'INR'}
+          members={groupDetails?.members ?? []}
+          balance={settlementBalance}
+          isOpen={isSettleUpModalOpen}
+          onClose={closeSettleUpModal}
+          onSettlementCreated={loadGroupData}
         />
 
         <DeleteExpenseModal
