@@ -11,6 +11,10 @@ export interface CreateGroupInput {
   type?: GroupType;
 }
 
+export interface CreateDirectGroupInput {
+  email: string;
+}
+
 export interface UpdateGroupInput {
   name?: string;
   defaultCurrency?: string;
@@ -42,6 +46,10 @@ export interface CreatedGroup {
 }
 
 export interface CreateGroupResponse {
+  group: CreatedGroup;
+}
+
+export interface CreateDirectGroupResponse {
   group: CreatedGroup;
 }
 
@@ -117,6 +125,17 @@ export function createGroup(input: CreateGroupInput, accessToken: string) {
       ...input,
       type: input.type ?? 'group',
     },
+    accessToken,
+  });
+}
+
+export function createDirectGroup(
+  input: CreateDirectGroupInput,
+  accessToken: string,
+) {
+  return apiRequest<CreateDirectGroupResponse>('/groups/direct', {
+    method: 'POST',
+    body: input,
     accessToken,
   });
 }
