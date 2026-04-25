@@ -386,6 +386,102 @@ describe('Groups and invitations integration', () => {
     expect(activatedMembership?.userId?.toString()).toBe(invitedUser.userId);
   });
 
+  it('lists received pending invites and accepts by invitation id', async () => {
+    const creator = await signupUser({
+      server: app.getHttpServer(),
+      apiPrefix: ctx.apiPrefix,
+      user: {
+        name: 'Inbox Creator',
+        email: uniqueEmail('invite-inbox-creator'),
+        password: 'StrongPass123',
+      },
+    });
+
+    const invitedUser = await signupUser({
+      server: app.getHttpServer(),
+      apiPrefix: ctx.apiPrefix,
+      user: {
+        name: 'Inbox Target',
+        email: uniqueEmail('invite-inbox-target'),
+        password: 'StrongPass123',
+      },
+    });
+
+    const groupResponse = await request(app.getHttpServer())
+      .post(`/${ctx.apiPrefix}/groups`)
+      .set('Authorization', `Bearer ${creator.accessToken}`)
+      .send({
+        name: 'Inbox Invite Group',
+        defaultCurrency: 'INR',
+      })
+      .expect(201);
+
+    const groupId = groupResponse.body.data.group.id as string;
+
+    await request(app.getHttpServer())
+      .post(`/${ctx.apiPrefix}/groups/${groupId}/invites`)
+      .set('Authorization', `Bearer ${creator.accessToken}`)
+      .send({
+        emails: [invitedUser.email],
+      })
+      .expect(201);
+
+    const pendingInvite = await invitationsRepository.findPendingByGroupIdAndEmail(
+      groupId,
+      invitedUser.email,
+    );
+    expect(pendingInvite).not.toBeNull();
+
+    const pendingMembership = await membershipsRepository.findByInvitationId(
+      pendingInvite!._id.toString(),
+    );
+    expect(pendingMembership).not.toBeNull();
+
+    const pendingInvitesResponse = await request(app.getHttpServer())
+      .get(`/${ctx.apiPrefix}/invites/pending`)
+      .set('Authorization', `Bearer ${invitedUser.accessToken}`)
+      .expect(200);
+
+    expect(pendingInvitesResponse.body.success).toBe(true);
+    expect(pendingInvitesResponse.body.data.invites).toHaveLength(1);
+    expect(pendingInvitesResponse.body.data.invites[0].invitationId).toBe(
+      pendingInvite!._id.toString(),
+    );
+    expect(pendingInvitesResponse.body.data.invites[0].membershipId).toBe(
+      pendingMembership!._id.toString(),
+    );
+    expect(pendingInvitesResponse.body.data.invites[0].group.id).toBe(groupId);
+    expect(pendingInvitesResponse.body.data.invites[0].group.name).toBe(
+      'Inbox Invite Group',
+    );
+
+    const acceptResponse = await request(app.getHttpServer())
+      .post(
+        `/${ctx.apiPrefix}/invites/pending/${pendingInvite!._id.toString()}/accept`,
+      )
+      .set('Authorization', `Bearer ${invitedUser.accessToken}`)
+      .expect(201);
+
+    expect(acceptResponse.body.success).toBe(true);
+    expect(acceptResponse.body.data.group.id).toBe(groupId);
+    expect(acceptResponse.body.data.membership.membershipId).toBe(
+      pendingMembership!._id.toString(),
+    );
+
+    const activatedMembership = await membershipsRepository.findById(
+      pendingMembership!._id.toString(),
+    );
+    expect(activatedMembership?.status).toBe('active');
+    expect(activatedMembership?.userId?.toString()).toBe(invitedUser.userId);
+
+    const pendingInvitesAfterAcceptResponse = await request(app.getHttpServer())
+      .get(`/${ctx.apiPrefix}/invites/pending`)
+      .set('Authorization', `Bearer ${invitedUser.accessToken}`)
+      .expect(200);
+
+    expect(pendingInvitesAfterAcceptResponse.body.data.invites).toHaveLength(0);
+  });
+
   it('rejects invite acceptance for mismatched authenticated email', async () => {
     const creator = await signupUser({
       server: app.getHttpServer(),

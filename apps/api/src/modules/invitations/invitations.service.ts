@@ -7,11 +7,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
+
 import { ActivityRepository } from '../activity/activity.repository';
 import { GroupsRepository } from '../groups/groups.repository';
 import { MembershipsRepository } from '../memberships/memberships.repository';
 import { UsersRepository } from '../users/users.repository';
 import { CreateGroupInvitesDto } from './dto/create-group-invites.dto';
+import { type InvitationDocument } from './invitation.schema';
 import { InvitationsEmailService } from './invitations-email.service';
 import { InvitationsRepository } from './invitations.repository';
 
@@ -169,6 +171,73 @@ export class InvitationsService {
     };
   }
 
+  async listReceivedPendingInvites(currentUserId: string) {
+    const currentUser = await this.usersRepository.findById(currentUserId);
+    if (!currentUser) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Authentication is required.',
+      });
+    }
+
+    const normalizedUserEmail = this.normalizeEmail(currentUser.email);
+    const invitations =
+      await this.invitationsRepository.findPendingByEmail(normalizedUserEmail);
+
+    const visibleInvites = [];
+
+    for (const invitation of invitations) {
+      if (invitation.expiresAt && invitation.expiresAt.getTime() < Date.now()) {
+        await this.invitationsRepository.updateById(
+          invitation._id.toString(),
+          {
+            $set: {
+              status: 'expired',
+            },
+          },
+        );
+
+        continue;
+      }
+
+      const groupId = invitation.groupId.toString();
+      const group = await this.groupsRepository.findById(groupId);
+
+      if (!group) {
+        continue;
+      }
+
+      const existingActiveMembership =
+        await this.membershipsRepository.findActiveByGroupIdAndUserId(
+          groupId,
+          currentUserId,
+        );
+
+      if (existingActiveMembership) {
+        continue;
+      }
+
+      visibleInvites.push({
+        invitationId: invitation._id.toString(),
+        email: invitation.email,
+        status: invitation.status,
+        membershipId: invitation.membershipId?.toString() ?? null,
+        invitedAt: invitation.createdAt.toISOString(),
+        expiresAt: invitation.expiresAt?.toISOString() ?? null,
+        group: {
+          id: group._id.toString(),
+          name: group.name,
+          type: group.type,
+          defaultCurrency: group.defaultCurrency,
+        },
+      });
+    }
+
+    return {
+      invites: visibleInvites,
+    };
+  }
+
   async resendInvite(
     groupId: string,
     invitationId: string,
@@ -299,19 +368,38 @@ export class InvitationsService {
   }
 
   async acceptInvite(token: string, currentUserId: string) {
-    const currentUser = await this.usersRepository.findById(currentUserId);
-    if (!currentUser) {
-      throw new UnauthorizedException({
-        code: 'UNAUTHORIZED',
-        message: 'Authentication is required.',
-      });
-    }
-
     const invitation = await this.invitationsRepository.findByToken(token);
     if (!invitation) {
       throw new BadRequestException({
         code: 'INVALID_TOKEN',
         message: 'Invite token is invalid.',
+      });
+    }
+
+    return this.acceptResolvedInvitation(invitation, currentUserId);
+  }
+
+  async acceptPendingInvite(invitationId: string, currentUserId: string) {
+    const invitation = await this.invitationsRepository.findById(invitationId);
+    if (!invitation) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Invite not found.',
+      });
+    }
+
+    return this.acceptResolvedInvitation(invitation, currentUserId);
+  }
+
+  private async acceptResolvedInvitation(
+    invitation: InvitationDocument,
+    currentUserId: string,
+  ) {
+    const currentUser = await this.usersRepository.findById(currentUserId);
+    if (!currentUser) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Authentication is required.',
       });
     }
 
@@ -336,10 +424,7 @@ export class InvitationsService {
       });
     }
 
-    if (
-      invitation.expiresAt &&
-      invitation.expiresAt.getTime() < Date.now()
-    ) {
+    if (invitation.expiresAt && invitation.expiresAt.getTime() < Date.now()) {
       await this.invitationsRepository.updateById(invitation._id.toString(), {
         $set: {
           status: 'expired',
