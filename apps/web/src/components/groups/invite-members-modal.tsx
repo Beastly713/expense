@@ -1,7 +1,9 @@
 'use client';
 
+import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 
+import { Button } from '@/components/ui';
 import { createGroupInvites } from '@/lib/api';
 import { ApiError } from '@/lib/api/client';
 import { validateInviteEmails } from '@/lib/validations/invites';
@@ -52,7 +54,7 @@ export function InviteMembersModal({
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isOpen, isSubmitting, onClose]);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const validation = validateInviteEmails(rawEmails);
@@ -107,41 +109,49 @@ export function InviteMembersModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 py-6 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="invite-members-modal-title"
     >
-      <div className="w-full max-w-lg rounded-2xl border border-neutral-200 bg-white p-6 shadow-xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2
-              id="invite-members-modal-title"
-              className="text-xl font-semibold text-neutral-900"
-            >
-              Invite members
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-neutral-600">
-              Enter one or more email addresses separated by commas or new lines.
-            </p>
-          </div>
+      <div className="w-full max-w-lg overflow-hidden rounded-[var(--ledgerly-radius-lg)] border border-[color:var(--ledgerly-border)] bg-white shadow-2xl">
+        <div className="bg-[var(--ledgerly-surface-soft)] px-6 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[color:var(--ledgerly-primary)]">
+                Invite
+              </p>
 
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="rounded-lg px-2 py-1 text-sm text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
-            aria-label="Close invite members modal"
-          >
-            ✕
-          </button>
+              <h2
+                id="invite-members-modal-title"
+                className="mt-2 text-2xl font-bold tracking-[-0.04em] text-[color:var(--ledgerly-text)]"
+              >
+                Invite members
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-[color:var(--ledgerly-muted)]">
+                Enter one or more email addresses separated by commas or new
+                lines. Pending invitees can participate in expenses.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="rounded-full px-3 py-1.5 text-sm font-bold text-[color:var(--ledgerly-muted)] transition hover:bg-white hover:text-[color:var(--ledgerly-text)] disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label="Close invite members modal"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+        <form className="space-y-4 p-6" onSubmit={handleSubmit}>
           <div>
             <label
               htmlFor="inviteEmails"
-              className="mb-1 block text-sm font-medium text-neutral-900"
+              className="mb-2 block text-sm font-bold text-[color:var(--ledgerly-text)]"
             >
               Email addresses
             </label>
@@ -152,39 +162,35 @@ export function InviteMembersModal({
               placeholder={'aayush@example.com\nriya@example.com'}
               rows={6}
               disabled={isSubmitting}
-              className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 outline-none transition focus:border-neutral-900"
+              className="ledgerly-focus-ring w-full rounded-2xl border border-[color:var(--ledgerly-border)] bg-white px-4 py-3 text-sm text-[color:var(--ledgerly-text)] transition placeholder:text-[color:var(--ledgerly-faint)] disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
 
           {formError ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="rounded-2xl border border-[color:var(--ledgerly-danger)] bg-[var(--ledgerly-danger-soft)] px-4 py-3 text-sm text-[color:var(--ledgerly-danger)]">
               {formError}
             </div>
           ) : null}
 
           {formSuccess ? (
-            <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+            <div className="rounded-2xl border border-[color:var(--ledgerly-positive)] bg-[var(--ledgerly-positive-soft)] px-4 py-3 text-sm text-[color:var(--ledgerly-positive)]">
               {formSuccess}
             </div>
           ) : null}
 
           <div className="flex items-center justify-end gap-3 pt-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={onClose}
               disabled={isSubmitting}
-              className="inline-flex items-center justify-center rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Close
-            </button>
+            </Button>
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="inline-flex items-center justify-center rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
+            <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Sending invites...' : 'Send invites'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

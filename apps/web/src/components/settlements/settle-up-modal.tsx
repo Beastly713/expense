@@ -1,7 +1,9 @@
 'use client';
 
+import type { FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
+import { Button } from '@/components/ui';
 import {
   createGroupSettlement,
   type CreateGroupSettlementInput,
@@ -129,7 +131,7 @@ export function SettleUpModal({
     onClose();
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!balance) {
@@ -210,32 +212,67 @@ export function SettleUpModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-      <div className="w-full max-w-lg rounded-2xl border border-neutral-200 bg-white p-6 shadow-xl">
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold text-neutral-900">Settle up</h2>
-          <p className="mt-2 text-sm text-neutral-600">
-            Record a manual cash settlement for the selected debt relation.
-          </p>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 py-6 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settle-up-modal-title"
+    >
+      <div className="w-full max-w-lg overflow-hidden rounded-[var(--ledgerly-radius-lg)] border border-[color:var(--ledgerly-border)] bg-white shadow-2xl">
+        <div className="bg-[var(--ledgerly-surface-soft)] px-6 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[color:var(--ledgerly-primary)]">
+                Cash settlement
+              </p>
+
+              <h2
+                id="settle-up-modal-title"
+                className="mt-2 text-2xl font-bold tracking-[-0.04em] text-[color:var(--ledgerly-text)]"
+              >
+                Settle up
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-[color:var(--ledgerly-muted)]">
+                Record a manual cash settlement for the selected debt relation.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={isSubmitting}
+              className="rounded-full px-3 py-1.5 text-sm font-bold text-[color:var(--ledgerly-muted)] transition hover:bg-white hover:text-[color:var(--ledgerly-text)] disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label="Close settle up modal"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
-        <div className="mb-6 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm">
-          <p className="font-medium text-neutral-900">
-            {(debtor?.name ?? debtor?.email ?? 'Unknown member')} pays{' '}
-            {(creditor?.name ?? creditor?.email ?? 'Unknown member')}
-          </p>
-          <p className="mt-1 text-neutral-600">
-            Current outstanding:{' '}
-            {formatCurrencyFromMinor(balance.amountMinor, currency)}
-          </p>
-          <p className="mt-1 text-neutral-500">Method: cash</p>
+        <div className="px-6 pt-6">
+          <div className="rounded-2xl border border-[color:var(--ledgerly-border)] bg-[var(--ledgerly-surface-soft)] p-4 text-sm">
+            <p className="font-bold text-[color:var(--ledgerly-text)]">
+              {(debtor?.name ?? debtor?.email ?? 'Unknown member')} pays{' '}
+              {(creditor?.name ?? creditor?.email ?? 'Unknown member')}
+            </p>
+
+            <p className="mt-1 text-[color:var(--ledgerly-muted)]">
+              Current outstanding:{' '}
+              {formatCurrencyFromMinor(balance.amountMinor, currency)}
+            </p>
+
+            <p className="mt-1 text-[color:var(--ledgerly-muted)]">
+              Method: cash
+            </p>
+          </div>
         </div>
 
-        <form className="space-y-5" onSubmit={handleSubmit}>
+        <form className="space-y-5 p-6" onSubmit={handleSubmit}>
           <div>
             <label
               htmlFor="settlement-amount"
-              className="block text-sm font-medium text-neutral-900"
+              className="block text-sm font-bold text-[color:var(--ledgerly-text)]"
             >
               Amount
             </label>
@@ -248,12 +285,14 @@ export function SettleUpModal({
               onChange={(event) => setAmount(event.target.value)}
               placeholder="0.00"
               disabled={isSubmitting}
-              className="mt-2 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 outline-none transition focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:cursor-not-allowed disabled:opacity-60"
+              className="ledgerly-focus-ring mt-2 w-full rounded-2xl border border-[color:var(--ledgerly-border)] bg-white px-4 py-3 text-sm text-[color:var(--ledgerly-text)] transition placeholder:text-[color:var(--ledgerly-faint)] disabled:cursor-not-allowed disabled:opacity-60"
             />
             {errors.amount ? (
-              <p className="mt-2 text-sm text-red-600">{errors.amount}</p>
+              <p className="mt-2 text-sm font-medium text-[color:var(--ledgerly-danger)]">
+                {errors.amount}
+              </p>
             ) : (
-              <p className="mt-2 text-xs text-neutral-500">
+              <p className="mt-2 text-xs leading-5 text-[color:var(--ledgerly-muted)]">
                 You can record a partial payment, but not more than the current
                 outstanding balance.
               </p>
@@ -263,9 +302,9 @@ export function SettleUpModal({
           <div>
             <label
               htmlFor="settlement-note"
-              className="block text-sm font-medium text-neutral-900"
+              className="block text-sm font-bold text-[color:var(--ledgerly-text)]"
             >
-              Note <span className="text-neutral-400">(optional)</span>
+              Note <span className="text-[color:var(--ledgerly-faint)]">(optional)</span>
             </label>
             <textarea
               id="settlement-note"
@@ -275,32 +314,29 @@ export function SettleUpModal({
               onChange={(event) => setNote(event.target.value)}
               disabled={isSubmitting}
               placeholder="Paid in cash after dinner"
-              className="mt-2 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 outline-none transition focus:border-neutral-500 focus:ring-2 focus:ring-neutral-200 disabled:cursor-not-allowed disabled:opacity-60"
+              className="ledgerly-focus-ring mt-2 w-full rounded-2xl border border-[color:var(--ledgerly-border)] bg-white px-4 py-3 text-sm text-[color:var(--ledgerly-text)] transition placeholder:text-[color:var(--ledgerly-faint)] disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
 
           {errors.form ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="rounded-2xl border border-[color:var(--ledgerly-danger)] bg-[var(--ledgerly-danger-soft)] px-4 py-3 text-sm text-[color:var(--ledgerly-danger)]">
               {errors.form}
             </div>
           ) : null}
 
           <div className="flex items-center justify-end gap-3 pt-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={handleClose}
               disabled={isSubmitting}
-              className="inline-flex items-center justify-center rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="inline-flex items-center justify-center rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
+            </Button>
+
+            <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Recording settlement...' : 'Record settlement'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
