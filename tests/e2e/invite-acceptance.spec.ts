@@ -162,3 +162,125 @@ test('user A invites user B and user B accepts invite', async ({ browser, page }
 
   await contextB.close();
 });
+
+test('user B can see and accept a pending group invite from dashboard', async ({
+  browser,
+  page,
+}) => {
+  const userAEmail = uniqueEmail('e2e-dashboard-invite-a');
+  const userBEmail = uniqueEmail('e2e-dashboard-invite-b');
+  const password = 'StrongPass123';
+  const groupName = 'Dashboard Invite Group';
+
+  await page.goto('/signup');
+
+  await page.getByLabel('Full name').fill('Dashboard Inviter');
+  await page.getByLabel('Email').fill(userAEmail);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByLabel('Confirm password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Sign up', exact: true }).click();
+
+  await expect(page.getByText('Onboarding')).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Create your first group', exact: true })
+    .click();
+
+  await page.getByLabel('Group name').fill(groupName);
+  await page.getByLabel('Default currency').fill('INR');
+  await page.getByRole('button', { name: 'Create group', exact: true }).click();
+
+  await expect(page).toHaveURL(/\/groups\/.+/);
+  await expect(
+    page.getByRole('heading', { name: groupName, exact: true }),
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: 'Invite members' }).click();
+  await page.getByLabel('Email addresses').fill(userBEmail);
+  await page.getByRole('button', { name: 'Send invites', exact: true }).click();
+
+  await expect(page.getByText('Invite sent successfully.')).toBeVisible();
+
+  const pendingInvitesSection = page.locator('section').filter({
+    has: page.getByRole('heading', { name: 'Pending invites' }),
+  });
+
+  await expect(
+    pendingInvitesSection.locator('p').filter({ hasText: userBEmail }).first(),
+  ).toBeVisible();
+
+  const contextB = await browser.newContext();
+  const pageB = await contextB.newPage();
+
+  await pageB.goto('/signup');
+
+  await pageB.getByLabel('Full name').fill('Dashboard Invitee');
+  await pageB.getByLabel('Email').fill(userBEmail);
+  await pageB.getByLabel('Password', { exact: true }).fill(password);
+  await pageB.getByLabel('Confirm password', { exact: true }).fill(password);
+  await pageB.getByRole('button', { name: 'Sign up', exact: true }).click();
+
+  await expect(pageB.getByText('Onboarding')).toBeVisible();
+  await pageB.getByRole('button', { name: 'Skip for now', exact: true }).click();
+
+  await expect(pageB).toHaveURL(/\/dashboard/);
+
+  const dashboardPendingInvitesSection = pageB.locator('section').filter({
+    has: pageB.getByRole('heading', { name: 'Pending invites', exact: true }),
+  });
+
+  await expect(dashboardPendingInvitesSection).toBeVisible();
+  await expect(
+    dashboardPendingInvitesSection.getByText(groupName, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    dashboardPendingInvitesSection.getByText(userBEmail, { exact: false }),
+  ).toBeVisible();
+
+  await dashboardPendingInvitesSection
+    .getByRole('button', { name: 'Accept invite', exact: true })
+    .click();
+
+  await expect(
+    dashboardPendingInvitesSection.getByText(
+      `Joined ${groupName} successfully.`,
+      { exact: true },
+    ),
+  ).toBeVisible();
+
+  await dashboardPendingInvitesSection
+    .getByRole('link', { name: 'Open group', exact: true })
+    .click();
+
+  await expect(pageB).toHaveURL(/\/groups\/.+/);
+  await expect(
+    pageB.getByRole('heading', { name: groupName, exact: true }),
+  ).toBeVisible();
+
+  const activeMembersSectionB = pageB.locator('section').filter({
+    has: pageB.getByRole('heading', { name: 'Members' }),
+  });
+
+  await expect(
+    activeMembersSectionB.getByText('Dashboard Invitee', { exact: true }),
+  ).toBeVisible();
+
+  await page.reload();
+
+  const pendingInvitesSectionAfterAccept = page.locator('section').filter({
+    has: page.getByRole('heading', { name: 'Pending invites' }),
+  });
+
+  await expect(
+    pendingInvitesSectionAfterAccept.locator('p').filter({ hasText: userBEmail }),
+  ).toHaveCount(0);
+
+  const activeMembersSectionA = page.locator('section').filter({
+    has: page.getByRole('heading', { name: 'Members' }),
+  });
+
+  await expect(
+    activeMembersSectionA.getByText('Dashboard Invitee', { exact: true }),
+  ).toBeVisible();
+
+  await contextB.close();
+});
