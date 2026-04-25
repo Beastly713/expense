@@ -13,9 +13,9 @@ type ButtonVariant =
 type ButtonSize = 'sm' | 'md' | 'lg' | 'icon';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: ButtonVariant;
-  size?: ButtonSize;
-  fullWidth?: boolean;
+  variant?: ButtonVariant | undefined;
+  size?: ButtonSize | undefined;
+  fullWidth?: boolean | undefined;
   children: ReactNode;
 }
 

@@ -4,9 +4,9 @@ import { cn } from '@/lib/utils';
 
 interface SectionHeaderProps {
   title: string;
-  description?: string;
+  description?: string | undefined;
   action?: ReactNode;
-  className?: string;
+  className?: string | undefined;
 }
 
 export function SectionHeader({

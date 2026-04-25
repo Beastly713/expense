@@ -44,6 +44,7 @@
 
 html {
   background: var(--ledgerly-bg);
+  color-scheme: light;
 }
 
 body {
@@ -56,6 +57,9 @@ body {
     Arial,
     Helvetica,
     sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button,
@@ -71,6 +75,12 @@ button {
 
 button:disabled {
   cursor: not-allowed;
+}
+
+input,
+textarea,
+select {
+  background-color: var(--ledgerly-surface);
 }
 
 a {
@@ -91,4 +101,15 @@ a {
   box-shadow:
     0 0 0 3px var(--ledgerly-bg),
     0 0 0 6px rgba(15, 143, 114, 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

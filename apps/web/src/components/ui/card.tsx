@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 type CardVariant = 'default' | 'soft' | 'elevated' | 'interactive' | 'danger';
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  variant?: CardVariant;
+  variant?: CardVariant | undefined;
   children: ReactNode;
 }
 

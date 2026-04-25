@@ -4,10 +4,10 @@ import { cn } from '@/lib/utils';
 
 interface PageHeaderProps {
   title: string;
-  eyebrow?: string;
-  description?: string;
+  eyebrow?: string | undefined;
+  description?: string | undefined;
   actions?: ReactNode;
-  className?: string;
+  className?: string | undefined;
 }
 
 export function PageHeader({

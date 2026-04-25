@@ -4,10 +4,10 @@ import { cn } from '@/lib/utils';
 
 interface EmptyStateProps {
   title: string;
-  description?: string;
+  description?: string | undefined;
   action?: ReactNode;
   icon?: ReactNode;
-  className?: string;
+  className?: string | undefined;
 }
 
 export function EmptyState({

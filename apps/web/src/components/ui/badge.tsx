@@ -11,7 +11,7 @@ type BadgeVariant =
   | 'purple';
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
-  variant?: BadgeVariant;
+  variant?: BadgeVariant | undefined;
   children: ReactNode;
 }
 
