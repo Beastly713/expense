@@ -6,8 +6,8 @@ import { useState } from 'react';
 
 import { CreateGroupModal } from '@/components/groups/create-group-modal';
 import { Button } from '@/components/ui';
-import { APP_NAME } from '@/lib/branding';
 import { useAuth } from '@/lib/auth';
+import { APP_NAME } from '@/lib/branding';
 
 export function ProtectedShellHeader() {
   const router = useRouter();

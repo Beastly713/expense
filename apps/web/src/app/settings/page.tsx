@@ -12,8 +12,8 @@ import {
   PageHeader,
   SectionHeader,
 } from '@/components/ui';
-import { APP_NAME } from '@/lib/branding';
 import { useAuth } from '@/lib/auth';
+import { APP_NAME } from '@/lib/branding';
 
 function getInitials(value: string): string {
   return value

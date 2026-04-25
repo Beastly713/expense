@@ -8,8 +8,8 @@ import { useMemo, useState } from 'react';
 import { Button, Card, CardContent } from '@/components/ui';
 import { acceptInvite, type AcceptInviteResponse } from '@/lib/api';
 import { ApiError } from '@/lib/api/client';
-import { APP_NAME } from '@/lib/branding';
 import { useAuth } from '@/lib/auth';
+import { APP_NAME } from '@/lib/branding';
 
 interface AcceptInviteErrorState {
   code: string;
