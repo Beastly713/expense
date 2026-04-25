@@ -2,9 +2,19 @@
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { ProtectedRoute } from '@/components/layout/protected-route';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  EmptyState,
+  PageHeader,
+  SectionHeader,
+} from '@/components/ui';
 import {
   getExpenseDetails,
   getGroupDetails,
@@ -21,6 +31,9 @@ import {
   type CreateExpenseFormErrors,
   type CreateExpenseFormValues,
 } from '@/lib/validations/expenses';
+
+const inputClassName =
+  'ledgerly-focus-ring w-full rounded-2xl border border-[color:var(--ledgerly-border)] bg-white px-4 py-3 text-sm text-[color:var(--ledgerly-text)] transition placeholder:text-[color:var(--ledgerly-faint)] disabled:cursor-not-allowed disabled:opacity-60';
 
 function formatCurrencyFromMinor(amountMinor: number, currency: string): string {
   try {
@@ -50,6 +63,57 @@ function buildExpenseReturnHref(
   return `/groups/${groupId}`;
 }
 
+function FormSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section>
+      <Card>
+        <CardContent className="p-5 sm:p-6">
+          <SectionHeader
+            title={title}
+            {...(description ? { description } : {})}
+          />
+          <div className="mt-5">{children}</div>
+        </CardContent>
+      </Card>
+    </section>
+  );
+}
+
+function FieldError({ message }: { message: string | undefined }) {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <p className="mt-2 text-sm font-medium text-[color:var(--ledgerly-danger)]">
+      {message}
+    </p>
+  );
+}
+
+function getSplitMethodDescription(method: ExpenseSplitMethod): string {
+  switch (method) {
+    case 'equal':
+      return 'Backend divides the amount evenly and handles any final-cent remainder.';
+    case 'exact':
+      return 'Enter the exact amount each participant should owe.';
+    case 'percent':
+      return 'Enter percentages that add up to 100.';
+    case 'shares':
+      return 'Enter relative shares and Ledgerly will compute proportional amounts.';
+    default:
+      return 'Choose how this expense should be split.';
+  }
+}
+
 export default function EditExpensePage() {
   const params = useParams<{ expenseId: string }>();
   const router = useRouter();
@@ -58,8 +122,10 @@ export default function EditExpensePage() {
 
   const { accessToken } = useAuth();
 
-  const [groupDetails, setGroupDetails] = useState<GroupDetailsResponse | null>(null);
-  const [expenseDetails, setExpenseDetails] = useState<ExpenseDetailsResponse | null>(null);
+  const [groupDetails, setGroupDetails] =
+    useState<GroupDetailsResponse | null>(null);
+  const [expenseDetails, setExpenseDetails] =
+    useState<ExpenseDetailsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,7 +137,9 @@ export default function EditExpensePage() {
   const [notes, setNotes] = useState('');
   const [payerMembershipId, setPayerMembershipId] = useState('');
   const [splitMethod, setSplitMethod] = useState<ExpenseSplitMethod>('equal');
-  const [selectedMembershipIds, setSelectedMembershipIds] = useState<string[]>([]);
+  const [selectedMembershipIds, setSelectedMembershipIds] = useState<string[]>(
+    [],
+  );
   const [inputValuesByMembershipId, setInputValuesByMembershipId] = useState<
     Record<string, string>
   >({});
@@ -129,7 +197,9 @@ export default function EditExpensePage() {
   }, [accessToken, expenseId]);
 
   const visibleMembers = useMemo(() => {
-    return (groupDetails?.members ?? []).filter((member) => member.status !== 'removed');
+    return (groupDetails?.members ?? []).filter(
+      (member) => member.status !== 'removed',
+    );
   }, [groupDetails]);
 
   const selectedParticipants = useMemo(() => {
@@ -138,28 +208,43 @@ export default function EditExpensePage() {
       .map((member) => ({
         membershipId: member.membershipId,
         name: member.name,
+        email: member.email,
+        status: member.status,
         inputValue: inputValuesByMembershipId[member.membershipId] ?? '',
       }));
   }, [inputValuesByMembershipId, selectedMembershipIds, visibleMembers]);
+
+  const amountMinor = useMemo(() => {
+    const numeric = Number(amount);
+
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return 0;
+    }
+
+    return Math.round(numeric * 100);
+  }, [amount]);
 
   const equalPreview = useMemo(() => {
     if (!groupDetails || splitMethod !== 'equal' || selectedParticipants.length === 0) {
       return [];
     }
 
-    const amountMinor = parseAmountToMinorUnits(amount);
-    if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
+    const parsedAmountMinor = parseAmountToMinorUnits(amount);
+
+    if (!Number.isFinite(parsedAmountMinor) || parsedAmountMinor <= 0) {
       return [];
     }
 
-    const baseShare = Math.floor(amountMinor / selectedParticipants.length);
-    let remainder = amountMinor - baseShare * selectedParticipants.length;
+    const baseShare = Math.floor(parsedAmountMinor / selectedParticipants.length);
+    let remainder = parsedAmountMinor - baseShare * selectedParticipants.length;
 
     return selectedParticipants.map((participant) => {
       const extra = remainder > 0 ? 1 : 0;
+
       if (remainder > 0) {
         remainder -= 1;
       }
+
       return {
         membershipId: participant.membershipId,
         name: participant.name,
@@ -174,6 +259,7 @@ export default function EditExpensePage() {
         if (current.includes(membershipId)) {
           return current;
         }
+
         return [...current, membershipId];
       }
 
@@ -188,7 +274,7 @@ export default function EditExpensePage() {
     }));
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!accessToken || !groupDetails || !expenseDetails) {
@@ -212,6 +298,7 @@ export default function EditExpensePage() {
     };
 
     const nextErrors = validateCreateExpenseForm(formValues);
+
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
       return;
@@ -268,344 +355,440 @@ export default function EditExpensePage() {
     }
   }
 
+  const returnHref = expenseDetails?.expense.groupId
+    ? buildExpenseReturnHref(groupDetails, expenseDetails.expense.groupId)
+    : '/dashboard';
+
   return (
     <ProtectedRoute>
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-        <div className="mb-6">
-          <Link
-            href={
-              expenseDetails?.expense.groupId
-                ? buildExpenseReturnHref(
-                    groupDetails,
-                    expenseDetails.expense.groupId,
-                  )
-                : '/dashboard'
-            }
-            className="text-sm font-medium text-neutral-600 transition hover:text-neutral-900"
-          >
-            ← Back
-          </Link>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-neutral-950">
-            Edit expense
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-neutral-600">
-            Update the expense details and save changes. Backend validation and final
-            split math still remain the source of truth.
-          </p>
-        </div>
-
+      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:py-10">
         {isLoading ? (
-          <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-            <p className="text-sm text-neutral-600">Loading expense details...</p>
+          <section>
+            <Card>
+              <CardContent className="p-6">
+                <p className="text-sm text-[color:var(--ledgerly-muted)]">
+                  Loading expense details...
+                </p>
+              </CardContent>
+            </Card>
           </section>
         ) : null}
 
         {!isLoading && loadError ? (
-          <section className="rounded-2xl border border-red-200 bg-red-50 p-6 shadow-sm">
-            <h2 className="text-base font-semibold text-red-900">Could not load expense</h2>
-            <p className="mt-2 text-sm text-red-700">{loadError}</p>
+          <section>
+            <Card variant="danger">
+              <CardContent className="p-6">
+                <h1 className="text-lg font-bold text-[color:var(--ledgerly-danger)]">
+                  Could not load expense
+                </h1>
+                <p className="mt-2 text-sm text-[color:var(--ledgerly-danger)]">
+                  {loadError}
+                </p>
+              </CardContent>
+            </Card>
           </section>
         ) : null}
 
         {!isLoading && !loadError && groupDetails && expenseDetails ? (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
-              <h2 className="text-sm font-semibold text-amber-900">
-                Balance recalculation warning
-              </h2>
-              <p className="mt-1 text-sm text-amber-800">
-                Editing this expense will recalculate balances.
-              </p>
-            </section>
-
-            {expenseDetails.expense.isDeleted ? (
-              <section className="rounded-2xl border border-red-200 bg-red-50 p-4 shadow-sm">
-                <p className="text-sm text-red-700">
-                  This expense is deleted and cannot be edited.
-                </p>
-              </section>
-            ) : null}
-
-            <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-neutral-900">Basic info</h2>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <label className="block">
-                  <span className="text-sm font-medium text-neutral-700">Title</span>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm outline-none transition focus:border-neutral-500"
-                    placeholder="Dinner"
+          <div className="space-y-6">
+            <section>
+              <Card variant="elevated">
+                <CardContent className="p-6">
+                  <PageHeader
+                    eyebrow="Edit expense"
+                    title="Edit expense"
+                    description="Update the expense details and save changes. Ledgerly will recalculate balances from the source records."
+                    actions={
+                      <Link
+                        href={returnHref}
+                        className="inline-flex h-11 items-center justify-center rounded-full border border-[color:var(--ledgerly-border)] bg-white px-4 text-sm font-semibold text-[color:var(--ledgerly-text)] transition hover:border-[color:var(--ledgerly-primary)] hover:bg-[var(--ledgerly-primary-soft)]"
+                      >
+                        ← Back
+                      </Link>
+                    }
                   />
-                  {errors.title ? (
-                    <p className="mt-1 text-xs text-red-600">{errors.title}</p>
-                  ) : null}
-                </label>
 
-                <label className="block">
-                  <span className="text-sm font-medium text-neutral-700">Amount</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={amount}
-                    onChange={(event) => setAmount(event.target.value)}
-                    className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm outline-none transition focus:border-neutral-500"
-                    placeholder="1200.00"
-                  />
-                  {errors.amount ? (
-                    <p className="mt-1 text-xs text-red-600">{errors.amount}</p>
-                  ) : null}
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-medium text-neutral-700">Date</span>
-                  <input
-                    type="date"
-                    value={dateIncurred}
-                    onChange={(event) => setDateIncurred(event.target.value)}
-                    className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm outline-none transition focus:border-neutral-500"
-                  />
-                  {errors.dateIncurred ? (
-                    <p className="mt-1 text-xs text-red-600">{errors.dateIncurred}</p>
-                  ) : null}
-                </label>
-
-                <label className="block md:col-span-2">
-                  <span className="text-sm font-medium text-neutral-700">Notes</span>
-                  <textarea
-                    value={notes}
-                    onChange={(event) => setNotes(event.target.value)}
-                    rows={4}
-                    className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm outline-none transition focus:border-neutral-500"
-                    placeholder="Optional notes"
-                  />
-                </label>
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-neutral-900">Who paid</h2>
-              <div className="mt-4">
-                <label className="block">
-                  <span className="text-sm font-medium text-neutral-700">Payer</span>
-                  <select
-                    value={payerMembershipId}
-                    onChange={(event) => setPayerMembershipId(event.target.value)}
-                    className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-neutral-500"
-                  >
-                    <option value="">Select payer</option>
-                    {visibleMembers.map((member) => (
-                      <option key={member.membershipId} value={member.membershipId}>
-                        {member.name} {member.status === 'pending' ? '(pending)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.payerMembershipId ? (
-                    <p className="mt-1 text-xs text-red-600">
-                      {errors.payerMembershipId}
-                    </p>
-                  ) : null}
-                </label>
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-neutral-900">
-                Who is involved
-              </h2>
-              <p className="mt-1 text-sm text-neutral-600">
-                Select at least 2 participants. Pending invitees remain valid
-                participants.
-              </p>
-
-              <div className="mt-4 space-y-3">
-                {visibleMembers.map((member) => {
-                  const checked = selectedMembershipIds.includes(member.membershipId);
-
-                  return (
-                    <label
-                      key={member.membershipId}
-                      className="flex items-center justify-between rounded-xl border border-neutral-200 px-4 py-3"
-                    >
-                      <span className="min-w-0">
-                        <span className="block text-sm font-medium text-neutral-900">
-                          {member.name}
-                        </span>
-                        <span className="block text-xs text-neutral-500">
-                          {member.email}
-                          {member.status === 'pending' ? ' · Pending' : ''}
-                        </span>
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(event) =>
-                          setParticipantSelected(
-                            member.membershipId,
-                            event.target.checked,
-                          )
-                        }
-                        className="h-4 w-4 rounded border-neutral-300"
-                      />
-                    </label>
-                  );
-                })}
-              </div>
-
-              {errors.participants ? (
-                <p className="mt-3 text-xs text-red-600">{errors.participants}</p>
-              ) : null}
-            </section>
-
-            <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-neutral-900">Split method</h2>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {(['equal', 'exact', 'percent', 'shares'] as const).map((method) => {
-                  const selected = splitMethod === method;
-
-                  return (
-                    <button
-                      key={method}
-                      type="button"
-                      onClick={() => setSplitMethod(method)}
-                      className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
-                        selected
-                          ? 'border-neutral-900 bg-neutral-900 text-white'
-                          : 'border-neutral-200 bg-white text-neutral-800 hover:border-neutral-300'
-                      }`}
-                    >
-                      <span className="font-medium capitalize">{method}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {splitMethod !== 'equal' ? (
-                <div className="mt-5 space-y-3">
-                  {selectedParticipants.map((participant) => (
-                    <label
-                      key={participant.membershipId}
-                      className="flex items-center gap-3 rounded-xl border border-neutral-200 px-4 py-3"
-                    >
-                      <span className="min-w-0 flex-1 text-sm text-neutral-800">
-                        {participant.name}
-                      </span>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={participant.inputValue}
-                        onChange={(event) =>
-                          setParticipantInputValue(
-                            participant.membershipId,
-                            event.target.value,
-                          )
-                        }
-                        className="w-36 rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-500"
-                        placeholder={
-                          splitMethod === 'exact'
-                            ? 'Amount'
-                            : splitMethod === 'percent'
-                              ? 'Percent'
-                              : 'Shares'
-                        }
-                      />
-                    </label>
-                  ))}
-                </div>
-              ) : null}
-
-              {errors.splitInputs ? (
-                <p className="mt-3 text-xs text-red-600">{errors.splitInputs}</p>
-              ) : null}
-            </section>
-
-            <section className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-neutral-900">Review</h2>
-              <div className="mt-4 space-y-2 text-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-neutral-500">Group</span>
-                  <span className="font-medium text-neutral-900">
-                    {groupDetails.group.name}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-neutral-500">Currency</span>
-                  <span className="font-medium text-neutral-900">
-                    {groupDetails.group.defaultCurrency}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-neutral-500">Participants</span>
-                  <span className="font-medium text-neutral-900">
-                    {selectedParticipants.length}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-neutral-500">Split method</span>
-                  <span className="font-medium capitalize text-neutral-900">
-                    {splitMethod}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-neutral-500">Payer</span>
-                  <span className="font-medium text-neutral-900">
-                    {visibleMembers.find(
-                      (member) => member.membershipId === payerMembershipId,
-                    )?.name ?? 'Not selected'}
-                  </span>
-                </div>
-              </div>
-
-              {splitMethod === 'equal' && equalPreview.length > 0 ? (
-                <div className="mt-4 space-y-2">
-                  {equalPreview.map((item) => (
-                    <div
-                      key={item.membershipId}
-                      className="flex items-center justify-between rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3"
-                    >
-                      <span className="text-neutral-800">{item.name}</span>
-                      <span className="font-medium text-neutral-900">
-                        {formatCurrencyFromMinor(
-                          item.shareMinor,
-                          groupDetails.group.defaultCurrency,
-                        )}
-                      </span>
+                  <div className="mt-6 grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
+                    <div className="rounded-[var(--ledgerly-radius-lg)] border border-[color:var(--ledgerly-warning)] bg-[var(--ledgerly-warning-soft)] p-5">
+                      <h2 className="text-sm font-bold text-[color:var(--ledgerly-warning)]">
+                        Balance recalculation warning
+                      </h2>
+                      <p className="mt-2 text-sm leading-6 text-[color:var(--ledgerly-warning)]">
+                        Editing this expense will recalculate balances.
+                      </p>
                     </div>
+
+                    <div className="rounded-[var(--ledgerly-radius-lg)] bg-[var(--ledgerly-surface-soft)] p-5">
+                      <p className="text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ledgerly-muted)]">
+                        Amount preview
+                      </p>
+                      <p className="mt-3 text-3xl font-bold tracking-[-0.05em] text-[color:var(--ledgerly-text)]">
+                        {amountMinor > 0
+                          ? formatCurrencyFromMinor(
+                              amountMinor,
+                              groupDetails.group.defaultCurrency,
+                            )
+                          : `${groupDetails.group.defaultCurrency} 0.00`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {expenseDetails.expense.isDeleted ? (
+                    <div className="mt-5 rounded-2xl border border-[color:var(--ledgerly-danger)] bg-[var(--ledgerly-danger-soft)] px-4 py-3 text-sm text-[color:var(--ledgerly-danger)]">
+                      This expense is deleted and cannot be edited.
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
+            </section>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <FormSection
+                title="Basic info"
+                description="Keep the title, amount, date, and notes accurate."
+              >
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor="expense-title"
+                      className="mb-2 block text-sm font-bold text-[color:var(--ledgerly-text)]"
+                    >
+                      Title
+                    </label>
+                    <input
+                      id="expense-title"
+                      aria-label="Title"
+                      type="text"
+                      value={title}
+                      onChange={(event) => setTitle(event.target.value)}
+                      className={inputClassName}
+                      placeholder="Dinner"
+                    />
+                    <FieldError message={errors.title} />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="expense-amount"
+                      className="mb-2 block text-sm font-bold text-[color:var(--ledgerly-text)]"
+                    >
+                      Amount
+                    </label>
+                    <input
+                      id="expense-amount"
+                      aria-label="Amount"
+                      type="text"
+                      inputMode="decimal"
+                      value={amount}
+                      onChange={(event) => setAmount(event.target.value)}
+                      className={inputClassName}
+                      placeholder="1200.00"
+                    />
+                    <FieldError message={errors.amount} />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="expense-date"
+                      className="mb-2 block text-sm font-bold text-[color:var(--ledgerly-text)]"
+                    >
+                      Date
+                    </label>
+                    <input
+                      id="expense-date"
+                      aria-label="Date"
+                      type="date"
+                      value={dateIncurred}
+                      onChange={(event) => setDateIncurred(event.target.value)}
+                      className={inputClassName}
+                    />
+                    <FieldError message={errors.dateIncurred} />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label
+                      htmlFor="expense-notes"
+                      className="mb-2 block text-sm font-bold text-[color:var(--ledgerly-text)]"
+                    >
+                      Notes
+                    </label>
+                    <textarea
+                      id="expense-notes"
+                      aria-label="Notes"
+                      value={notes}
+                      onChange={(event) => setNotes(event.target.value)}
+                      rows={4}
+                      className={inputClassName}
+                      placeholder="Optional notes"
+                    />
+                  </div>
+                </div>
+              </FormSection>
+
+              <FormSection
+                title="Who paid"
+                description="The payer must be a valid group or direct-ledger participant."
+              >
+                <label
+                  htmlFor="expense-payer"
+                  className="mb-2 block text-sm font-bold text-[color:var(--ledgerly-text)]"
+                >
+                  Payer
+                </label>
+                <select
+                  id="expense-payer"
+                  aria-label="Payer"
+                  value={payerMembershipId}
+                  onChange={(event) => setPayerMembershipId(event.target.value)}
+                  className={inputClassName}
+                >
+                  <option value="">Select payer</option>
+                  {visibleMembers.map((member) => (
+                    <option key={member.membershipId} value={member.membershipId}>
+                      {member.name} {member.status === 'pending' ? '(pending)' : ''}
+                    </option>
                   ))}
+                </select>
+                <FieldError message={errors.payerMembershipId} />
+              </FormSection>
+
+              <FormSection
+                title="Who is involved"
+                description="Select at least 2 participants. Pending invitees remain valid participants."
+              >
+                {visibleMembers.length === 0 ? (
+                  <EmptyState
+                    title="No selectable members"
+                    description="This expense cannot be edited until members are available."
+                  />
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {visibleMembers.map((member) => {
+                      const checked = selectedMembershipIds.includes(
+                        member.membershipId,
+                      );
+
+                      return (
+                        <label
+                          key={member.membershipId}
+                          className={`flex items-start justify-between gap-3 rounded-2xl border px-4 py-3 transition ${
+                            checked
+                              ? 'border-[color:var(--ledgerly-primary)] bg-[var(--ledgerly-primary-soft)]'
+                              : 'border-[color:var(--ledgerly-border)] bg-white hover:bg-[var(--ledgerly-surface-soft)]'
+                          }`}
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-bold text-[color:var(--ledgerly-text)]">
+                              {member.name}
+                            </span>
+                            <span className="block truncate text-xs text-[color:var(--ledgerly-muted)]">
+                              {member.email}
+                            </span>
+                            {member.status === 'pending' ? (
+                              <span className="mt-2 inline-flex">
+                                <Badge variant="warning">Pending invite</Badge>
+                              </span>
+                            ) : null}
+                          </span>
+
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(event) =>
+                              setParticipantSelected(
+                                member.membershipId,
+                                event.target.checked,
+                              )
+                            }
+                            className="mt-1"
+                          />
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <FieldError message={errors.participants} />
+              </FormSection>
+
+              <FormSection
+                title="Split method"
+                description={getSplitMethodDescription(splitMethod)}
+              >
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {(['equal', 'exact', 'percent', 'shares'] as const).map(
+                    (method) => {
+                      const selected = splitMethod === method;
+
+                      return (
+                        <button
+                          key={method}
+                          type="button"
+                          onClick={() => setSplitMethod(method)}
+                          className={`rounded-2xl border px-4 py-3 text-left text-sm font-bold transition ${
+                            selected
+                              ? 'border-[color:var(--ledgerly-primary)] bg-[var(--ledgerly-primary)] text-white'
+                              : 'border-[color:var(--ledgerly-border)] bg-white text-[color:var(--ledgerly-text)] hover:bg-[var(--ledgerly-surface-soft)]'
+                          }`}
+                        >
+                          <span className="capitalize">{method}</span>
+                        </button>
+                      );
+                    },
+                  )}
+                </div>
+
+                {splitMethod !== 'equal' ? (
+                  <div className="mt-5 space-y-3">
+                    {selectedParticipants.map((participant) => (
+                      <label
+                        key={participant.membershipId}
+                        className="grid gap-3 rounded-2xl border border-[color:var(--ledgerly-border)] bg-[var(--ledgerly-surface-soft)] px-4 py-3 sm:grid-cols-[1fr_180px]"
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-sm font-bold text-[color:var(--ledgerly-text)]">
+                            {participant.name}
+                          </span>
+                          <span className="block text-xs text-[color:var(--ledgerly-muted)]">
+                            {participant.email}
+                          </span>
+                        </span>
+
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={participant.inputValue}
+                          onChange={(event) =>
+                            setParticipantInputValue(
+                              participant.membershipId,
+                              event.target.value,
+                            )
+                          }
+                          className={inputClassName}
+                          placeholder={
+                            splitMethod === 'exact'
+                              ? 'Amount'
+                              : splitMethod === 'percent'
+                                ? 'Percent'
+                                : 'Shares'
+                          }
+                        />
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-5 rounded-2xl border border-[color:var(--ledgerly-border)] bg-[var(--ledgerly-surface-soft)] p-4">
+                    <p className="text-sm leading-6 text-[color:var(--ledgerly-muted)]">
+                      Equal split is recomputed on save. The preview below
+                      follows the selected participant order.
+                    </p>
+                  </div>
+                )}
+
+                <FieldError message={errors.splitInputs} />
+              </FormSection>
+
+              <FormSection
+                title="Review"
+                description="Review the current state before saving changes."
+              >
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--ledgerly-border)] bg-[var(--ledgerly-surface-soft)] px-4 py-3">
+                    <span className="text-[color:var(--ledgerly-muted)]">Group</span>
+                    <span className="font-bold text-[color:var(--ledgerly-text)]">
+                      {groupDetails.group.name}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--ledgerly-border)] bg-[var(--ledgerly-surface-soft)] px-4 py-3">
+                    <span className="text-[color:var(--ledgerly-muted)]">
+                      Currency
+                    </span>
+                    <span className="font-bold text-[color:var(--ledgerly-text)]">
+                      {groupDetails.group.defaultCurrency}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--ledgerly-border)] bg-[var(--ledgerly-surface-soft)] px-4 py-3">
+                    <span className="text-[color:var(--ledgerly-muted)]">
+                      Participants
+                    </span>
+                    <span className="font-bold text-[color:var(--ledgerly-text)]">
+                      {selectedParticipants.length}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--ledgerly-border)] bg-[var(--ledgerly-surface-soft)] px-4 py-3">
+                    <span className="text-[color:var(--ledgerly-muted)]">
+                      Split method
+                    </span>
+                    <span className="font-bold capitalize text-[color:var(--ledgerly-text)]">
+                      {splitMethod}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--ledgerly-border)] bg-[var(--ledgerly-surface-soft)] px-4 py-3">
+                    <span className="text-[color:var(--ledgerly-muted)]">Payer</span>
+                    <span className="font-bold text-[color:var(--ledgerly-text)]">
+                      {visibleMembers.find(
+                        (member) => member.membershipId === payerMembershipId,
+                      )?.name ?? 'Not selected'}
+                    </span>
+                  </div>
+                </div>
+
+                {splitMethod === 'equal' && equalPreview.length > 0 ? (
+                  <div className="mt-5 space-y-2">
+                    {equalPreview.map((item) => (
+                      <div
+                        key={item.membershipId}
+                        className="flex items-center justify-between rounded-2xl border border-[color:var(--ledgerly-border)] bg-white px-4 py-3"
+                      >
+                        <span className="text-[color:var(--ledgerly-text)]">
+                          {item.name}
+                        </span>
+                        <span className="font-bold text-[color:var(--ledgerly-text)]">
+                          {formatCurrencyFromMinor(
+                            item.shareMinor,
+                            groupDetails.group.defaultCurrency,
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                <p className="mt-5 text-sm leading-6 text-[color:var(--ledgerly-muted)]">
+                  Final split math and validation are owned by the backend.
+                </p>
+              </FormSection>
+
+              {errors.form ? (
+                <div className="rounded-2xl border border-[color:var(--ledgerly-danger)] bg-[var(--ledgerly-danger-soft)] px-4 py-3 text-sm text-[color:var(--ledgerly-danger)]">
+                  {errors.form}
                 </div>
               ) : null}
 
-              <p className="mt-4 text-sm text-neutral-600">
-                Final split math and validation are owned by the backend.
-              </p>
-            </section>
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                <Link
+                  href={buildExpenseReturnHref(
+                    groupDetails,
+                    expenseDetails.expense.groupId,
+                  )}
+                  className="inline-flex h-11 items-center justify-center rounded-full border border-[color:var(--ledgerly-border)] bg-white px-4 text-sm font-semibold text-[color:var(--ledgerly-text)] transition hover:border-[color:var(--ledgerly-primary)] hover:bg-[var(--ledgerly-primary-soft)]"
+                >
+                  Cancel
+                </Link>
 
-            {errors.form ? (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {errors.form}
+                <Button
+                  type="submit"
+                  disabled={isSubmitting || expenseDetails.expense.isDeleted}
+                >
+                  {isSubmitting ? 'Saving changes...' : 'Save changes'}
+                </Button>
               </div>
-            ) : null}
-
-            <div className="flex flex-wrap items-center justify-end gap-3">
-              <Link
-                href={buildExpenseReturnHref(
-                  groupDetails,
-                  expenseDetails.expense.groupId,
-                )}
-                className="inline-flex items-center justify-center rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100"
-              >
-                Cancel
-              </Link>
-              <button
-                type="submit"
-                disabled={isSubmitting || expenseDetails.expense.isDeleted}
-                className="inline-flex items-center justify-center rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSubmitting ? 'Saving changes...' : 'Save changes'}
-              </button>
-            </div>
-          </form>
+            </form>
+          </div>
         ) : null}
       </main>
     </ProtectedRoute>
