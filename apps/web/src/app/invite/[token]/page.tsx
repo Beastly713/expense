@@ -2,10 +2,13 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 
+import { Button, Card, CardContent } from '@/components/ui';
 import { acceptInvite, type AcceptInviteResponse } from '@/lib/api';
 import { ApiError } from '@/lib/api/client';
+import { APP_NAME } from '@/lib/branding';
 import { useAuth } from '@/lib/auth';
 
 interface AcceptInviteErrorState {
@@ -13,17 +16,13 @@ interface AcceptInviteErrorState {
   message: string;
 }
 
-function Shell({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function Shell({ children }: { children: ReactNode }) {
   return (
-    <main className="min-h-screen bg-neutral-50 px-4 py-10">
-      <div className="mx-auto flex min-h-[80vh] max-w-3xl items-center justify-center">
-        <div className="w-full rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm sm:p-8">
-          {children}
-        </div>
+    <main className="min-h-screen px-4 py-10 sm:px-6">
+      <div className="mx-auto flex min-h-[82vh] max-w-3xl items-center justify-center">
+        <Card variant="elevated" className="w-full overflow-hidden">
+          <CardContent className="p-6 sm:p-8">{children}</CardContent>
+        </Card>
       </div>
     </main>
   );
@@ -38,12 +37,36 @@ function StatusBox({
 }) {
   const className =
     tone === 'error'
-      ? 'rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700'
+      ? 'rounded-2xl border border-[color:var(--ledgerly-danger)] bg-[var(--ledgerly-danger-soft)] px-4 py-3 text-sm text-[color:var(--ledgerly-danger)]'
       : tone === 'success'
-        ? 'rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700'
-        : 'rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-700';
+        ? 'rounded-2xl border border-[color:var(--ledgerly-positive)] bg-[var(--ledgerly-positive-soft)] px-4 py-3 text-sm text-[color:var(--ledgerly-positive)]'
+        : 'rounded-2xl border border-[color:var(--ledgerly-border)] bg-[var(--ledgerly-surface-soft)] px-4 py-3 text-sm text-[color:var(--ledgerly-muted)]';
 
   return <div className={className}>{message}</div>;
+}
+
+function InviteHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div>
+      <p className="text-sm font-bold uppercase tracking-[0.18em] text-[color:var(--ledgerly-primary)]">
+        {APP_NAME} invite
+      </p>
+
+      <h1 className="mt-3 text-3xl font-bold tracking-[-0.05em] text-[color:var(--ledgerly-text)]">
+        {title}
+      </h1>
+
+      <p className="mt-4 text-sm leading-7 text-[color:var(--ledgerly-muted)]">
+        {description}
+      </p>
+    </div>
+  );
 }
 
 export default function InviteAcceptancePage() {
@@ -128,27 +151,18 @@ export default function InviteAcceptancePage() {
   if (!token) {
     return (
       <Shell>
-        <p className="text-sm font-medium uppercase tracking-wide text-neutral-500">
-          Invite acceptance
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold text-neutral-900">
-          Invalid invite link
-        </h1>
-        <p className="mt-4 text-sm leading-7 text-neutral-600">
-          This invite link is missing its token. Ask the group owner to resend
-          the invite.
-        </p>
+        <InviteHeader
+          title="Invalid invite link"
+          description="This invite link is missing its token. Ask the group owner to resend the invite."
+        />
 
         <div className="mt-6">
           <StatusBox tone="error" message="Invite token is missing." />
         </div>
 
         <div className="mt-6">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center justify-center rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-800"
-          >
-            Go to dashboard
+          <Link href="/dashboard" className="inline-flex">
+            <Button type="button">Go to dashboard</Button>
           </Link>
         </div>
       </Shell>
@@ -158,15 +172,10 @@ export default function InviteAcceptancePage() {
   if (status === 'booting') {
     return (
       <Shell>
-        <p className="text-sm font-medium uppercase tracking-wide text-neutral-500">
-          Invite acceptance
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold text-neutral-900">
-          Loading invite
-        </h1>
-        <p className="mt-4 text-sm leading-7 text-neutral-600">
-          Checking your session so you can continue the invite flow.
-        </p>
+        <InviteHeader
+          title="Loading invite"
+          description="Checking your session so you can continue the invite flow."
+        />
       </Shell>
     );
   }
@@ -174,31 +183,22 @@ export default function InviteAcceptancePage() {
   if (status === 'unauthenticated') {
     return (
       <Shell>
-        <p className="text-sm font-medium uppercase tracking-wide text-neutral-500">
-          Invite acceptance
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold text-neutral-900">
-          Sign up or log in to continue
-        </h1>
-        <p className="mt-4 text-sm leading-7 text-neutral-600">
-          This invite is tied to an email address. Log in with the invited email,
-          or create an account with that same email, then continue invite
-          acceptance.
-        </p>
+        <InviteHeader
+          title="Sign up or log in to continue"
+          description="This invite is tied to an email address. Log in with the invited email, or create an account with that same email, then continue invite acceptance."
+        />
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <Link
-            href={`/login?redirect=${encodedRedirect}`}
-            className="inline-flex items-center justify-center rounded-xl bg-neutral-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-neutral-800"
-          >
-            Log in
+          <Link href={`/login?redirect=${encodedRedirect}`} className="inline-flex">
+            <Button type="button" className="w-full">
+              Log in
+            </Button>
           </Link>
 
-          <Link
-            href={`/signup?redirect=${encodedRedirect}`}
-            className="inline-flex items-center justify-center rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100"
-          >
-            Sign up
+          <Link href={`/signup?redirect=${encodedRedirect}`} className="inline-flex">
+            <Button type="button" variant="outline" className="w-full">
+              Sign up
+            </Button>
           </Link>
         </div>
       </Shell>
@@ -208,15 +208,10 @@ export default function InviteAcceptancePage() {
   if (acceptSuccess) {
     return (
       <Shell>
-        <p className="text-sm font-medium uppercase tracking-wide text-neutral-500">
-          Invite acceptance
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold text-neutral-900">
-          You joined the group
-        </h1>
-        <p className="mt-4 text-sm leading-7 text-neutral-600">
-          Your membership is now active and you can continue into the group.
-        </p>
+        <InviteHeader
+          title="You joined the group"
+          description="Your membership is now active and you can continue into the group."
+        />
 
         <div className="mt-6">
           <StatusBox
@@ -226,18 +221,14 @@ export default function InviteAcceptancePage() {
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link
-            href={`/groups/${acceptSuccess.group.id}`}
-            className="inline-flex items-center justify-center rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-800"
-          >
-            Open group
+          <Link href={`/groups/${acceptSuccess.group.id}`} className="inline-flex">
+            <Button type="button">Open group</Button>
           </Link>
 
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center justify-center rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100"
-          >
-            Go to dashboard
+          <Link href="/dashboard" className="inline-flex">
+            <Button type="button" variant="outline">
+              Go to dashboard
+            </Button>
           </Link>
         </div>
       </Shell>
@@ -246,18 +237,17 @@ export default function InviteAcceptancePage() {
 
   return (
     <Shell>
-      <p className="text-sm font-medium uppercase tracking-wide text-neutral-500">
-        Invite acceptance
-      </p>
+      <InviteHeader
+        title="Accept this group invite"
+        description="Accepting the invite activates the pending membership tied to your email while preserving the same membership id."
+      />
 
-      <h1 className="mt-3 text-3xl font-semibold text-neutral-900">
-        Accept this group invite
-      </h1>
-
-      <p className="mt-4 text-sm leading-7 text-neutral-600">
+      <p className="mt-4 text-sm leading-7 text-[color:var(--ledgerly-muted)]">
         You are signed in as{' '}
-        <span className="font-medium text-neutral-900">{user?.email}</span>.
-        Accept the invite to activate the pending membership tied to this email.
+        <span className="font-bold text-[color:var(--ledgerly-text)]">
+          {user?.email}
+        </span>
+        .
       </p>
 
       {acceptError ? (
@@ -269,11 +259,11 @@ export default function InviteAcceptancePage() {
         </div>
       ) : null}
 
-      <div className="mt-6 rounded-2xl border border-neutral-200 bg-neutral-50 p-5">
-        <h2 className="text-base font-semibold text-neutral-900">
+      <div className="mt-6 rounded-[var(--ledgerly-radius-lg)] border border-[color:var(--ledgerly-border)] bg-[var(--ledgerly-surface-soft)] p-5">
+        <h2 className="text-base font-bold text-[color:var(--ledgerly-text)]">
           What happens next
         </h2>
-        <ul className="mt-3 space-y-2 text-sm text-neutral-600">
+        <ul className="mt-3 space-y-2 text-sm leading-6 text-[color:var(--ledgerly-muted)]">
           <li>• your pending membership becomes active</li>
           <li>• the same membership id is preserved</li>
           <li>• historical group references stay intact</li>
@@ -282,31 +272,25 @@ export default function InviteAcceptancePage() {
 
       <div className="mt-6 flex flex-wrap gap-3">
         {!isTerminalError ? (
-          <button
+          <Button
             type="button"
             onClick={() => void handleAcceptInvite()}
             disabled={isSubmitting}
-            className="inline-flex items-center justify-center rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? 'Accepting invite...' : 'Accept invite'}
-          </button>
+          </Button>
         ) : null}
 
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center justify-center rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100"
-        >
-          Go to dashboard
+        <Link href="/dashboard" className="inline-flex">
+          <Button type="button" variant="outline">
+            Go to dashboard
+          </Button>
         </Link>
 
         {acceptError?.code === 'FORBIDDEN' ? (
-          <button
-            type="button"
-            onClick={() => void logout()}
-            className="inline-flex items-center justify-center rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100"
-          >
+          <Button type="button" variant="outline" onClick={() => void logout()}>
             Log out and switch account
-          </button>
+          </Button>
         ) : null}
       </div>
     </Shell>

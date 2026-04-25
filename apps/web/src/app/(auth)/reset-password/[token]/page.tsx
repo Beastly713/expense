@@ -2,11 +2,13 @@
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import type { FormEvent } from 'react';
 import { useMemo, useState } from 'react';
 
 import { AuthFormField } from '@/components/forms/auth-form-field';
 import { AuthPageShell } from '@/components/forms/auth-page-shell';
 import { PublicOnlyRoute } from '@/components/layout/public-only-route';
+import { Button } from '@/components/ui';
 import { resetPassword } from '@/lib/api';
 import { ApiError } from '@/lib/api/client';
 import {
@@ -24,8 +26,7 @@ export default function ResetPasswordPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const token =
-    typeof params?.token === 'string' ? params.token : '';
+  const token = typeof params?.token === 'string' ? params.token : '';
 
   const formValues = useMemo(
     () => ({
@@ -35,7 +36,7 @@ export default function ResetPasswordPage() {
     [password, confirmPassword],
   );
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const nextErrors = validateResetPasswordForm(formValues);
@@ -88,12 +89,15 @@ export default function ResetPasswordPage() {
   return (
     <PublicOnlyRoute>
       <AuthPageShell
-        title="Reset password"
-        subtitle="Choose a new password for your account."
+        title="Choose a new password"
+        subtitle="Secure your Ledgerly account with a new password."
         footer={
-          <p className="text-sm text-neutral-600">
+          <p className="text-sm text-[color:var(--ledgerly-muted)]">
             Back to{' '}
-            <Link href="/login" className="font-medium text-neutral-900 underline">
+            <Link
+              href="/login"
+              className="font-bold text-[color:var(--ledgerly-primary)] hover:text-[color:var(--ledgerly-primary-dark)] hover:underline"
+            >
               login
             </Link>
           </p>
@@ -123,24 +127,20 @@ export default function ResetPasswordPage() {
           />
 
           {errors.form ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="rounded-2xl border border-[color:var(--ledgerly-danger)] bg-[var(--ledgerly-danger-soft)] px-4 py-3 text-sm text-[color:var(--ledgerly-danger)]">
               {errors.form}
             </div>
           ) : null}
 
           {successMessage ? (
-            <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+            <div className="rounded-2xl border border-[color:var(--ledgerly-positive)] bg-[var(--ledgerly-positive-soft)] px-4 py-3 text-sm text-[color:var(--ledgerly-positive)]">
               {successMessage}
             </div>
           ) : null}
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="inline-flex w-full items-center justify-center rounded-xl bg-neutral-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button type="submit" disabled={isSubmitting} className="w-full">
             {isSubmitting ? 'Resetting password...' : 'Reset password'}
-          </button>
+          </Button>
         </form>
       </AuthPageShell>
     </PublicOnlyRoute>

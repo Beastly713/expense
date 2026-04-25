@@ -2,11 +2,13 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import type { FormEvent } from 'react';
 import { useMemo, useState } from 'react';
 
 import { AuthFormField } from '@/components/forms/auth-form-field';
 import { AuthPageShell } from '@/components/forms/auth-page-shell';
 import { PublicOnlyRoute } from '@/components/layout/public-only-route';
+import { Button } from '@/components/ui';
 import { ApiError } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth';
 import {
@@ -32,7 +34,7 @@ export default function LoginPage() {
     [email, password],
   );
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const nextErrors = validateLoginForm(formValues);
@@ -69,17 +71,24 @@ export default function LoginPage() {
   return (
     <PublicOnlyRoute>
       <AuthPageShell
-        title="Welcome back"
-        subtitle="Log in with your email and password."
+        title="Welcome back to Ledgerly"
+        subtitle="Log in to view your groups, balances, settlements, and activity."
         footer={
-          <div className="flex items-center justify-between gap-3 text-sm text-neutral-600">
+          <div className="flex flex-col gap-3 text-sm text-[color:var(--ledgerly-muted)] sm:flex-row sm:items-center sm:justify-between">
             <p>
               New here?{' '}
-              <Link href="/signup" className="font-medium text-neutral-900 underline">
+              <Link
+                href="/signup"
+                className="font-bold text-[color:var(--ledgerly-primary)] hover:text-[color:var(--ledgerly-primary-dark)] hover:underline"
+              >
                 Sign up
               </Link>
             </p>
-            <Link href="/forgot-password" className="font-medium text-neutral-900 underline">
+
+            <Link
+              href="/forgot-password"
+              className="font-bold text-[color:var(--ledgerly-primary)] hover:text-[color:var(--ledgerly-primary-dark)] hover:underline"
+            >
               Forgot password?
             </Link>
           </div>
@@ -109,18 +118,14 @@ export default function LoginPage() {
           />
 
           {errors.form ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="rounded-2xl border border-[color:var(--ledgerly-danger)] bg-[var(--ledgerly-danger-soft)] px-4 py-3 text-sm text-[color:var(--ledgerly-danger)]">
               {errors.form}
             </div>
           ) : null}
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="inline-flex w-full items-center justify-center rounded-xl bg-neutral-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button type="submit" disabled={isSubmitting} className="w-full">
             {isSubmitting ? 'Logging in...' : 'Log in'}
-          </button>
+          </Button>
         </form>
       </AuthPageShell>
     </PublicOnlyRoute>

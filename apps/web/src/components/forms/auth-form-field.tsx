@@ -21,9 +21,13 @@ export function AuthFormField({
 }: AuthFormFieldProps) {
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-sm font-medium text-neutral-800">
+      <label
+        htmlFor={id}
+        className="mb-2 block text-sm font-bold text-[color:var(--ledgerly-text)]"
+      >
         {label}
       </label>
+
       <input
         id={id}
         type={type}
@@ -31,13 +35,18 @@ export function AuthFormField({
         autoComplete={autoComplete}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className={`w-full rounded-xl border px-3 py-2 text-sm outline-none transition ${
+        className={`ledgerly-focus-ring w-full rounded-2xl border px-4 py-3 text-sm transition placeholder:text-[color:var(--ledgerly-faint)] ${
           error
-            ? 'border-red-500 bg-red-50 text-neutral-900'
-            : 'border-neutral-300 bg-white text-neutral-900 focus:border-neutral-500'
+            ? 'border-[color:var(--ledgerly-danger)] bg-[var(--ledgerly-danger-soft)] text-[color:var(--ledgerly-text)]'
+            : 'border-[color:var(--ledgerly-border)] bg-white text-[color:var(--ledgerly-text)]'
         }`}
       />
-      {error ? <p className="mt-1 text-xs text-red-600">{error}</p> : null}
+
+      {error ? (
+        <p className="mt-2 text-sm font-medium text-[color:var(--ledgerly-danger)]">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
