@@ -2,3 +2,7 @@ Start Server: sudo systemctl start mongod
 Check Status: sudo systemctl status mongod
 Stop Server: sudo systemctl stop mongod
 Enable on Boot: sudo systemctl enable mongod 
+
+pnpm dev:api
+pnpm dev:web
+pnpm test:all
