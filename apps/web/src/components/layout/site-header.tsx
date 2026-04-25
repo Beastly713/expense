@@ -1,25 +1,34 @@
 import Link from 'next/link';
 
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/activity', label: 'Activity' },
-  { href: '/settings', label: 'Settings' },
-];
+import { APP_NAME } from '@/lib/branding';
 
 export function SiteHeader() {
   return (
-    <header className="border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-        <Link href="/" className="font-semibold tracking-tight text-slate-900">
-          Splitwise Clone
+    <header className="border-b border-[color:var(--ledgerly-border)] bg-white/85 backdrop-blur">
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <Link href="/" className="flex items-center gap-2">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--ledgerly-primary)] text-sm font-black text-white">
+            L
+          </span>
+          <span className="text-lg font-bold tracking-[-0.03em] text-[color:var(--ledgerly-text)]">
+            {APP_NAME}
+          </span>
         </Link>
 
-        <nav className="flex items-center gap-4 text-sm text-slate-600">
-          {navItems.map((item) => (
-            <Link key={item.href} href={item.href} className="transition hover:text-slate-900">
-              {item.label}
-            </Link>
-          ))}
+        <nav className="flex items-center gap-2">
+          <Link
+            href="/login"
+            className="rounded-full px-4 py-2 text-sm font-semibold text-[color:var(--ledgerly-muted)] transition hover:bg-[var(--ledgerly-surface-soft)] hover:text-[color:var(--ledgerly-text)]"
+          >
+            Log in
+          </Link>
+
+          <Link
+            href="/signup"
+            className="rounded-full bg-[var(--ledgerly-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[var(--ledgerly-primary-dark)]"
+          >
+            Sign up
+          </Link>
         </nav>
       </div>
     </header>

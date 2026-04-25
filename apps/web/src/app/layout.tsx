@@ -7,8 +7,9 @@ import { AuthProvider } from '@/lib/auth';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Splitwise Clone',
-  description: 'Expense-sharing MVP',
+  title: 'Ledgerly',
+  description:
+    'Track shared expenses, split costs with groups and friends, and settle up clearly.',
 };
 
 export default function RootLayout({

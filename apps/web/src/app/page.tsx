@@ -1,63 +1,167 @@
 import Link from 'next/link';
 
-import { PublicOnlyRoute } from '@/components/layout/public-only-route';
-import { env } from '@/lib/env';
+import {
+  APP_DESCRIPTION,
+  APP_NAME,
+  APP_TAGLINE,
+  LANDING_HERO_DESCRIPTION,
+  LANDING_HERO_TITLE,
+} from '@/lib/branding';
+
+const featureCards = [
+  {
+    title: 'Track balances',
+    description:
+      'See who owes whom across groups and direct friend ledgers without reading raw ledger math.',
+  },
+  {
+    title: 'Split flexibly',
+    description:
+      'Use equal, exact, percentage, or shares-based splits with backend-owned rounding.',
+  },
+  {
+    title: 'Settle up clearly',
+    description:
+      'Record manual cash settlements and keep every change visible through activity.',
+  },
+];
 
 export default function LandingPage() {
   return (
-    <PublicOnlyRoute>
-      <main className="min-h-screen bg-neutral-50 px-4 py-10">
-        <div className="mx-auto flex min-h-[80vh] max-w-5xl flex-col justify-center gap-10">
-          <div className="max-w-3xl">
-            <p className="mb-3 text-sm font-medium uppercase tracking-wide text-neutral-500">
-              {env.appName}
-            </p>
-            <h1 className="text-4xl font-semibold tracking-tight text-neutral-900 sm:text-5xl">
-              Split shared expenses, track balances, and settle up clearly.
-            </h1>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-neutral-600">
-              Create groups, invite people, add expenses, and keep a clean running view of who
-              owes whom. This MVP focuses on the core Splitwise-style flow.
-            </p>
-          </div>
+    <main className="min-h-screen">
+      <section className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-24">
+        <div className="flex flex-col justify-center">
+          <p className="mb-4 text-sm font-bold uppercase tracking-[0.18em] text-[color:var(--ledgerly-primary)]">
+            {APP_NAME}
+          </p>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <h1 className="max-w-3xl text-5xl font-bold tracking-[-0.06em] text-[color:var(--ledgerly-text)] sm:text-6xl">
+            {LANDING_HERO_TITLE}
+          </h1>
+
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-[color:var(--ledgerly-muted)]">
+            {LANDING_HERO_DESCRIPTION}
+          </p>
+
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
               href="/signup"
-              className="inline-flex items-center justify-center rounded-xl bg-neutral-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-neutral-800"
+              className="inline-flex h-12 items-center justify-center rounded-full bg-[var(--ledgerly-primary)] px-6 text-sm font-bold text-white shadow-sm transition hover:bg-[var(--ledgerly-primary-dark)]"
             >
-              Sign up
+              Start using Ledgerly
             </Link>
+
             <Link
               href="/login"
-              className="inline-flex items-center justify-center rounded-xl border border-neutral-300 bg-white px-5 py-3 text-sm font-medium text-neutral-900 transition hover:bg-neutral-100"
+              className="inline-flex h-12 items-center justify-center rounded-full border border-[color:var(--ledgerly-border)] bg-white px-6 text-sm font-bold text-[color:var(--ledgerly-text)] transition hover:border-[color:var(--ledgerly-primary)] hover:bg-[var(--ledgerly-primary-soft)]"
             >
               Log in
             </Link>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-semibold text-neutral-900">Create groups</h2>
-              <p className="mt-2 text-sm text-neutral-600">
-                Start with a trip, home, or any shared context where expenses need to stay visible.
+          <p className="mt-5 text-sm text-[color:var(--ledgerly-muted)]">
+            {APP_TAGLINE}
+          </p>
+        </div>
+
+        <div className="relative">
+          <div className="rounded-[2rem] border border-[color:var(--ledgerly-border)] bg-white p-6 shadow-[var(--ledgerly-shadow-soft)]">
+            <div className="rounded-[1.5rem] bg-[var(--ledgerly-surface-soft)] p-5">
+              <p className="text-sm font-bold text-[color:var(--ledgerly-muted)]">
+                Overall
               </p>
-            </div>
-            <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-semibold text-neutral-900">Split flexibly</h2>
-              <p className="mt-2 text-sm text-neutral-600">
-                Support equal, exact, percentage, and shares-based splits with backend-owned math.
+
+              <p className="mt-3 text-2xl font-bold tracking-[-0.04em] text-[color:var(--ledgerly-text)]">
+                You are owed{' '}
+                <span className="text-[color:var(--ledgerly-positive)]">
+                  ₹2,450.00
+                </span>
               </p>
-            </div>
-            <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-semibold text-neutral-900">See simplified balances</h2>
-              <p className="mt-2 text-sm text-neutral-600">
-                Focus on the final “who owes whom” view instead of raw ledger complexity.
-              </p>
+
+              <div className="mt-6 space-y-3">
+                <div className="rounded-2xl bg-white p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="font-bold text-[color:var(--ledgerly-text)]">
+                        Goa Trip
+                      </p>
+                      <p className="mt-1 text-sm text-[color:var(--ledgerly-muted)]">
+                        Aisha owes you ₹900.00
+                      </p>
+                    </div>
+                    <p className="font-bold text-[color:var(--ledgerly-positive)]">
+                      ₹1,200.00
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-white p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="font-bold text-[color:var(--ledgerly-text)]">
+                        Rahul
+                      </p>
+                      <p className="mt-1 text-sm text-[color:var(--ledgerly-muted)]">
+                        Direct ledger
+                      </p>
+                    </div>
+                    <p className="font-bold text-[color:var(--ledgerly-negative)]">
+                      ₹320.00
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-white p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="font-bold text-[color:var(--ledgerly-text)]">
+                        Flatmates
+                      </p>
+                      <p className="mt-1 text-sm text-[color:var(--ledgerly-muted)]">
+                        Settled after rent
+                      </p>
+                    </div>
+                    <p className="font-bold text-[color:var(--ledgerly-muted)]">
+                      Settled
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+
+          <div className="absolute -bottom-5 -left-5 hidden rounded-3xl bg-[var(--ledgerly-negative-soft)] px-5 py-4 text-sm font-semibold text-[color:var(--ledgerly-negative)] shadow-sm sm:block">
+            Clear balances, fewer awkward reminders.
+          </div>
         </div>
-      </main>
-    </PublicOnlyRoute>
+      </section>
+
+      <section className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6 lg:px-8">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold tracking-[-0.04em] text-[color:var(--ledgerly-text)]">
+            Built for everyday shared costs
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:var(--ledgerly-muted)]">
+            {APP_DESCRIPTION}
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          {featureCards.map((feature) => (
+            <article
+              key={feature.title}
+              className="rounded-[var(--ledgerly-radius-lg)] border border-[color:var(--ledgerly-border)] bg-white p-5"
+            >
+              <h3 className="text-lg font-bold text-[color:var(--ledgerly-text)]">
+                {feature.title}
+              </h3>
+              <p className="mt-3 text-sm leading-6 text-[color:var(--ledgerly-muted)]">
+                {feature.description}
+              </p>
+            </article>
+          ))}
+        </div>
+      </section>
+    </main>
   );
 }
