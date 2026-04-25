@@ -18,16 +18,37 @@ import {
   SectionHeader,
 } from '@/components/ui';
 import {
+  acceptPendingInvite,
   createDirectGroup,
   getDashboardSummary,
   listGlobalActivity,
   listGroups,
+  listReceivedPendingInvites,
+  type AcceptInviteResponse,
   type DashboardSummaryResponse,
   type GlobalActivityItem,
   type GroupListItem,
+  type ReceivedPendingInvite,
 } from '@/lib/api';
 import { ApiError } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth';
+
+async function loadDashboardData(accessToken: string) {
+  const [nextSummary, nextGroups, nextActivity, nextPendingInvites] =
+    await Promise.all([
+      getDashboardSummary(accessToken),
+      listGroups(accessToken, { type: 'all' }),
+      listGlobalActivity(accessToken, { page: 1, limit: 5 }),
+      listReceivedPendingInvites(accessToken),
+    ]);
+
+  return {
+    summary: nextSummary,
+    groups: nextGroups.groups,
+    activityItems: nextActivity.items,
+    pendingInvites: nextPendingInvites.invites,
+  };
+}
 
 function formatCurrencyFromMinor(amountMinor: number): string {
   return new Intl.NumberFormat('en-IN', {
@@ -265,6 +286,9 @@ export default function DashboardPage() {
   const [groups, setGroups] = useState<GroupListItem[]>([]);
   const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null);
   const [activityItems, setActivityItems] = useState<GlobalActivityItem[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<ReceivedPendingInvite[]>(
+    [],
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -273,6 +297,19 @@ export default function DashboardPage() {
   const [directEmail, setDirectEmail] = useState('');
   const [directError, setDirectError] = useState<string | null>(null);
   const [isCreatingDirect, setIsCreatingDirect] = useState(false);
+
+  const [pendingAcceptInviteId, setPendingAcceptInviteId] = useState<
+    string | null
+  >(null);
+  const [inviteActionMessage, setInviteActionMessage] = useState<string | null>(
+    null,
+  );
+  const [inviteActionError, setInviteActionError] = useState<string | null>(
+    null,
+  );
+  const [acceptedInviteGroup, setAcceptedInviteGroup] = useState<
+    AcceptInviteResponse['group'] | null
+  >(null);
 
   const regularGroups = useMemo(
     () => groups.filter((group) => group.type === 'group'),
@@ -288,6 +325,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!accessToken) {
+      setGroups([]);
+      setSummary(null);
+      setActivityItems([]);
+      setPendingInvites([]);
+      setIsLoading(false);
       return;
     }
 
@@ -299,19 +341,16 @@ export default function DashboardPage() {
         setIsLoading(true);
         setErrorMessage(null);
 
-        const [nextSummary, nextGroups, nextActivity] = await Promise.all([
-          getDashboardSummary(token),
-          listGroups(token, { type: 'all' }),
-          listGlobalActivity(token, { page: 1, limit: 5 }),
-        ]);
+        const nextDashboard = await loadDashboardData(token);
 
         if (!isMounted) {
           return;
         }
 
-        setSummary(nextSummary);
-        setGroups(nextGroups.groups);
-        setActivityItems(nextActivity.items);
+        setSummary(nextDashboard.summary);
+        setGroups(nextDashboard.groups);
+        setActivityItems(nextDashboard.activityItems);
+        setPendingInvites(nextDashboard.pendingInvites);
       } catch (error) {
         if (!isMounted) {
           return;
@@ -370,6 +409,38 @@ export default function DashboardPage() {
       }
     } finally {
       setIsCreatingDirect(false);
+    }
+  }
+
+  async function handleAcceptPendingInvite(invitationId: string) {
+    if (!accessToken) {
+      setInviteActionError('You must be signed in to accept invites.');
+      return;
+    }
+
+    try {
+      setPendingAcceptInviteId(invitationId);
+      setInviteActionMessage(null);
+      setInviteActionError(null);
+      setAcceptedInviteGroup(null);
+
+      const acceptResponse = await acceptPendingInvite(invitationId, accessToken);
+      const nextDashboard = await loadDashboardData(accessToken);
+
+      setSummary(nextDashboard.summary);
+      setGroups(nextDashboard.groups);
+      setActivityItems(nextDashboard.activityItems);
+      setPendingInvites(nextDashboard.pendingInvites);
+      setAcceptedInviteGroup(acceptResponse.group);
+      setInviteActionMessage(`Joined ${acceptResponse.group.name} successfully.`);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setInviteActionError(error.message);
+      } else {
+        setInviteActionError('Failed to accept invite.');
+      }
+    } finally {
+      setPendingAcceptInviteId(null);
     }
   }
 
@@ -450,6 +521,97 @@ export default function DashboardPage() {
                 value={summary?.directLedgerCount ?? 0}
                 helper="One-to-one friend balances tracked separately."
               />
+            </section>
+
+            <section>
+              <Card variant={pendingInvites.length > 0 ? 'elevated' : 'default'}>
+                <CardContent className="p-5 sm:p-6">
+                  <SectionHeader
+                    title="Pending invites"
+                    description="Group invites sent to the email address on your account."
+                  />
+
+                  {inviteActionMessage ? (
+                    <div className="mt-5 rounded-2xl border border-[color:var(--ledgerly-positive)] bg-[var(--ledgerly-positive-soft)] px-4 py-3 text-sm text-[color:var(--ledgerly-positive)]">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <span>{inviteActionMessage}</span>
+
+                        {acceptedInviteGroup ? (
+                          <Link
+                            href={`/groups/${acceptedInviteGroup.id}`}
+                            className="font-bold underline"
+                          >
+                            Open group
+                          </Link>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {inviteActionError ? (
+                    <div className="mt-5 rounded-2xl border border-[color:var(--ledgerly-danger)] bg-[var(--ledgerly-danger-soft)] px-4 py-3 text-sm text-[color:var(--ledgerly-danger)]">
+                      {inviteActionError}
+                    </div>
+                  ) : null}
+
+                  {pendingInvites.length === 0 ? (
+                    <EmptyState
+                      className="mt-6"
+                      title="No pending group invites"
+                      description="When someone invites this email to a group, the invite will appear here so you can accept it without hunting for the link."
+                    />
+                  ) : (
+                    <div className="mt-6 grid gap-3">
+                      {pendingInvites.map((invite) => (
+                        <article
+                          key={invite.invitationId}
+                          className="rounded-2xl border border-[color:var(--ledgerly-border)] bg-white p-4"
+                        >
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex min-w-0 items-start gap-3">
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--ledgerly-primary-soft)] text-sm font-black text-[color:var(--ledgerly-primary)]">
+                                {getInitials(invite.group.name) || 'G'}
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h3 className="truncate text-base font-bold text-[color:var(--ledgerly-text)]">
+                                    {invite.group.name}
+                                  </h3>
+
+                                  <Badge variant="brand">Invite</Badge>
+                                </div>
+
+                                <p className="mt-1 text-sm leading-6 text-[color:var(--ledgerly-muted)]">
+                                  Sent to {invite.email}
+                                </p>
+
+                                <p className="text-xs text-[color:var(--ledgerly-faint)]">
+                                  Invited {formatDateTime(invite.invitedAt)}
+                                </p>
+                              </div>
+                            </div>
+
+                            <Button
+                              type="button"
+                              onClick={() =>
+                                void handleAcceptPendingInvite(invite.invitationId)
+                              }
+                              disabled={
+                                pendingAcceptInviteId === invite.invitationId
+                              }
+                            >
+                              {pendingAcceptInviteId === invite.invitationId
+                                ? 'Accepting...'
+                                : 'Accept invite'}
+                            </Button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </section>
 
             <section>

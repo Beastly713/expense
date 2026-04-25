@@ -1,3 +1,5 @@
+import type { GroupType } from '@splitwise/shared-types';
+
 import { apiRequest } from './client';
 
 export interface CreateGroupInvitesInput {
@@ -12,6 +14,21 @@ export interface InviteItem {
   invitedAt?: string;
 }
 
+export interface ReceivedPendingInvite {
+  invitationId: string;
+  email: string;
+  status: 'pending';
+  membershipId: string | null;
+  invitedAt: string;
+  expiresAt: string | null;
+  group: {
+    id: string;
+    name: string;
+    type: GroupType;
+    defaultCurrency: string;
+  };
+}
+
 export interface CreateInvitesResponse {
   invites: Array<{
     invitationId: string;
@@ -23,6 +40,10 @@ export interface CreateInvitesResponse {
 
 export interface ListInvitesResponse {
   invites: InviteItem[];
+}
+
+export interface ListReceivedPendingInvitesResponse {
+  invites: ReceivedPendingInvite[];
 }
 
 export interface InviteMessageResponse {
@@ -61,6 +82,13 @@ export function listGroupInvites(groupId: string, accessToken: string) {
   });
 }
 
+export function listReceivedPendingInvites(accessToken: string) {
+  return apiRequest<ListReceivedPendingInvitesResponse>('/invites/pending', {
+    method: 'GET',
+    accessToken,
+  });
+}
+
 export function resendGroupInvite(
   groupId: string,
   invitationId: string,
@@ -94,4 +122,17 @@ export function acceptInvite(token: string, accessToken: string) {
     method: 'POST',
     accessToken,
   });
+}
+
+export function acceptPendingInvite(
+  invitationId: string,
+  accessToken: string,
+) {
+  return apiRequest<AcceptInviteResponse>(
+    `/invites/pending/${invitationId}/accept`,
+    {
+      method: 'POST',
+      accessToken,
+    },
+  );
 }
