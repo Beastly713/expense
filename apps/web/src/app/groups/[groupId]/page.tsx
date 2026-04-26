@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import type { ReactNode } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { InviteMembersModal } from '@/components/groups/invite-members-modal';
@@ -45,6 +45,8 @@ interface PendingMemberView extends GroupMember {
   invitationId: string | null;
   invitedAt: string | null;
 }
+
+const EXPENSE_PAGE_LIMIT = 10;
 
 function formatCurrencyFromMinor(amountMinor: number, currency: string): string {
   try {
@@ -283,13 +285,19 @@ function DeleteExpenseModal({
 
 export default function GroupDetailsPage() {
   const params = useParams<{ groupId: string }>();
-  const groupId = typeof params?.groupId === 'string' ? params.groupId.trim() : '';
+  const groupId =
+    typeof params?.groupId === 'string' ? params.groupId.trim() : '';
   const { accessToken } = useAuth();
 
   const [groupDetails, setGroupDetails] =
     useState<GroupDetailsResponse | null>(null);
   const [balances, setBalances] = useState<GroupBalancesResponse | null>(null);
   const [expenses, setExpenses] = useState<ExpenseListItem[]>([]);
+  const [expenseTotal, setExpenseTotal] = useState(0);
+  const [expensePage, setExpensePage] = useState(1);
+  const [expenseSearchInput, setExpenseSearchInput] = useState('');
+  const [expenseSearch, setExpenseSearch] = useState('');
+  const [includeDeletedExpenses, setIncludeDeletedExpenses] = useState(false);
   const [invites, setInvites] = useState<InviteItem[]>([]);
   const [activityItems, setActivityItems] = useState<GroupActivityItem[]>([]);
   const [settlementItems, setSettlementItems] = useState<
@@ -314,6 +322,7 @@ export default function GroupDetailsPage() {
       setGroupDetails(null);
       setBalances(null);
       setExpenses([]);
+      setExpenseTotal(0);
       setInvites([]);
       setActivityItems([]);
       setSettlementItems([]);
@@ -335,7 +344,12 @@ export default function GroupDetailsPage() {
       ] = await Promise.all([
         getGroupDetails(groupId, accessToken),
         getGroupBalances(groupId, accessToken),
-        listGroupExpenses(groupId, accessToken, { page: 1, limit: 20 }),
+        listGroupExpenses(groupId, accessToken, {
+          page: expensePage,
+          limit: EXPENSE_PAGE_LIMIT,
+          search: expenseSearch,
+          includeDeleted: includeDeletedExpenses,
+        }),
         listGroupActivity(groupId, accessToken, { page: 1, limit: 10 }),
         listGroupInvites(groupId, accessToken),
         listGroupSettlements(groupId, accessToken, { page: 1, limit: 10 }),
@@ -344,6 +358,7 @@ export default function GroupDetailsPage() {
       setGroupDetails(nextGroupDetails);
       setBalances(nextBalances);
       setExpenses(nextExpenses.items);
+      setExpenseTotal(nextExpenses.pagination.total);
       setActivityItems(nextActivity.items);
       setInvites(nextInvites.invites);
       setSettlementItems(nextSettlements.items);
@@ -356,7 +371,13 @@ export default function GroupDetailsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [accessToken, groupId]);
+  }, [
+    accessToken,
+    expensePage,
+    expenseSearch,
+    groupId,
+    includeDeletedExpenses,
+  ]);
 
   useEffect(() => {
     void loadGroupData();
@@ -414,6 +435,13 @@ export default function GroupDetailsPage() {
     }, 0);
   }, [groupDetails?.members]);
 
+  const expenseTotalPages = useMemo(() => {
+    return Math.max(1, Math.ceil(expenseTotal / EXPENSE_PAGE_LIMIT));
+  }, [expenseTotal]);
+
+  const hasExpenseFilters =
+    expenseSearch.trim().length > 0 || includeDeletedExpenses;
+
   function openSettleUpModal(balance: SimplifiedBalance) {
     setSettlementBalance(balance);
     setIsSettleUpModalOpen(true);
@@ -422,6 +450,19 @@ export default function GroupDetailsPage() {
   function closeSettleUpModal() {
     setSettlementBalance(null);
     setIsSettleUpModalOpen(false);
+  }
+
+  function handleExpenseSearchSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setExpensePage(1);
+    setExpenseSearch(expenseSearchInput.trim());
+  }
+
+  function handleClearExpenseFilters() {
+    setExpensePage(1);
+    setExpenseSearch('');
+    setExpenseSearchInput('');
+    setIncludeDeletedExpenses(false);
   }
 
   async function handleResendInvite(invitationId: string) {
@@ -813,7 +854,7 @@ export default function GroupDetailsPage() {
 
                 <SectionCard
                   title="Recent expenses"
-                  subtitle="Active expenses are shown by default. Deleted expenses stay visible through activity."
+                  subtitle="Search and filter group expenses without changing the financial source of truth."
                   action={
                     <Link
                       href={`/expenses/new?groupId=${groupId}`}
@@ -823,72 +864,209 @@ export default function GroupDetailsPage() {
                     </Link>
                   }
                 >
+                  <div className="mb-5 rounded-2xl border border-[color:var(--ledgerly-border)] bg-[var(--ledgerly-surface-soft)] p-4">
+                    <form
+                      className="grid gap-3 md:grid-cols-[1fr_auto_auto]"
+                      onSubmit={handleExpenseSearchSubmit}
+                    >
+                      <div>
+                        <label
+                          htmlFor="expense-search"
+                          className="mb-2 block text-sm font-bold text-[color:var(--ledgerly-text)]"
+                        >
+                          Search expenses
+                        </label>
+                        <input
+                          id="expense-search"
+                          type="search"
+                          value={expenseSearchInput}
+                          onChange={(event) =>
+                            setExpenseSearchInput(event.target.value)
+                          }
+                          placeholder="Search by title or notes"
+                          className="ledgerly-focus-ring w-full rounded-2xl border border-[color:var(--ledgerly-border)] bg-white px-4 py-3 text-sm text-[color:var(--ledgerly-text)] transition placeholder:text-[color:var(--ledgerly-faint)]"
+                        />
+                      </div>
+
+                      <div className="flex items-end">
+                        <Button type="submit" fullWidth>
+                          Search
+                        </Button>
+                      </div>
+
+                      <div className="flex items-end">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          fullWidth
+                          onClick={handleClearExpenseFilters}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    </form>
+
+                    <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <label className="flex items-center gap-2 text-sm font-semibold text-[color:var(--ledgerly-text)]">
+                        <input
+                          type="checkbox"
+                          checked={includeDeletedExpenses}
+                          onChange={(event) => {
+                            setExpensePage(1);
+                            setIncludeDeletedExpenses(event.target.checked);
+                          }}
+                        />
+                        Include deleted expenses
+                      </label>
+
+                      <p className="text-xs leading-5 text-[color:var(--ledgerly-muted)]">
+                        Uses server-side query filters, soft-delete filtering,
+                        sorting, skip, and limit.
+                      </p>
+                    </div>
+
+                    {hasExpenseFilters ? (
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
+                        {expenseSearch ? (
+                          <Badge variant="brand">Search: {expenseSearch}</Badge>
+                        ) : null}
+                        {includeDeletedExpenses ? (
+                          <Badge variant="warning">Deleted included</Badge>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+
                   {expenses.length === 0 ? (
                     <EmptyState
-                      title="No expenses yet"
-                      description="Add the first expense to start tracking balances in this group."
+                      title={
+                        hasExpenseFilters
+                          ? 'No expenses matched'
+                          : 'No expenses yet'
+                      }
+                      description={
+                        hasExpenseFilters
+                          ? 'Try a different search term or clear the filters.'
+                          : 'Add the first expense to start tracking balances in this group.'
+                      }
                       action={
-                        <Link
-                          href={`/expenses/new?groupId=${groupId}`}
-                          className="inline-flex h-11 items-center justify-center rounded-full bg-[var(--ledgerly-primary)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--ledgerly-primary-dark)]"
-                        >
-                          Add first expense
-                        </Link>
+                        !hasExpenseFilters ? (
+                          <Link
+                            href={`/expenses/new?groupId=${groupId}`}
+                            className="inline-flex h-11 items-center justify-center rounded-full bg-[var(--ledgerly-primary)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--ledgerly-primary-dark)]"
+                          >
+                            Add first expense
+                          </Link>
+                        ) : undefined
                       }
                     />
                   ) : (
-                    <div className="space-y-3">
-                      {expenses.map((expense) => (
-                        <article
-                          key={expense.id}
-                          className="rounded-2xl border border-[color:var(--ledgerly-border)] p-4"
+                    <>
+                      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm text-[color:var(--ledgerly-muted)]">
+                          Showing {expenses.length} of {expenseTotal} expense
+                          {expenseTotal === 1 ? '' : 's'}
+                        </p>
+
+                        <p className="text-sm text-[color:var(--ledgerly-muted)]">
+                          Page {expensePage} of {expenseTotalPages}
+                        </p>
+                      </div>
+
+                      <div className="space-y-3">
+                        {expenses.map((expense) => (
+                          <article
+                            key={expense.id}
+                            className="rounded-2xl border border-[color:var(--ledgerly-border)] p-4"
+                          >
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="truncate text-sm font-bold text-[color:var(--ledgerly-text)]">
+                                    {expense.title}
+                                  </p>
+
+                                  {expense.isDeleted ? (
+                                    <Badge variant="danger">Deleted</Badge>
+                                  ) : null}
+                                </div>
+
+                                <p className="mt-1 text-sm text-[color:var(--ledgerly-muted)]">
+                                  {formatCurrencyFromMinor(
+                                    expense.amountMinor,
+                                    expense.currency,
+                                  )}{' '}
+                                  · {formatDate(expense.dateIncurred)}
+                                </p>
+
+                                <p className="mt-1 text-xs text-[color:var(--ledgerly-faint)]">
+                                  Paid by{' '}
+                                  {memberNameByMembershipId.get(
+                                    expense.payerMembershipId,
+                                  ) ?? 'Unknown member'}{' '}
+                                  · split {expense.splitMethod}
+                                </p>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Link
+                                  href={`/expenses/${expense.id}/edit`}
+                                  className="inline-flex h-9 items-center justify-center rounded-full border border-[color:var(--ledgerly-border)] bg-white px-3 text-sm font-semibold text-[color:var(--ledgerly-text)] transition hover:bg-[var(--ledgerly-surface-soft)]"
+                                >
+                                  Edit
+                                </Link>
+
+                                {!expense.isDeleted ? (
+                                  <Button
+                                    type="button"
+                                    variant="danger"
+                                    size="sm"
+                                    onClick={() => {
+                                      setModalErrorMessage(null);
+                                      setExpensePendingDelete(expense);
+                                    }}
+                                  >
+                                    Delete
+                                  </Button>
+                                ) : null}
+                              </div>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+
+                      <div className="mt-5 flex items-center justify-between gap-3 border-t border-[color:var(--ledgerly-border)] pt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={expensePage <= 1}
+                          onClick={() =>
+                            setExpensePage((current) => Math.max(1, current - 1))
+                          }
                         >
-                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-bold text-[color:var(--ledgerly-text)]">
-                                {expense.title}
-                              </p>
+                          Previous
+                        </Button>
 
-                              <p className="mt-1 text-sm text-[color:var(--ledgerly-muted)]">
-                                {formatCurrencyFromMinor(
-                                  expense.amountMinor,
-                                  expense.currency,
-                                )}{' '}
-                                · {formatDate(expense.dateIncurred)}
-                              </p>
+                        <p className="text-sm text-[color:var(--ledgerly-muted)]">
+                          {expensePage} / {expenseTotalPages}
+                        </p>
 
-                              <p className="mt-1 text-xs text-[color:var(--ledgerly-faint)]">
-                                Paid by{' '}
-                                {memberNameByMembershipId.get(
-                                  expense.payerMembershipId,
-                                ) ?? 'Unknown member'}
-                              </p>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Link
-                                href={`/expenses/${expense.id}/edit`}
-                                className="inline-flex h-9 items-center justify-center rounded-full border border-[color:var(--ledgerly-border)] bg-white px-3 text-sm font-semibold text-[color:var(--ledgerly-text)] transition hover:bg-[var(--ledgerly-surface-soft)]"
-                              >
-                                Edit
-                              </Link>
-
-                              <Button
-                                type="button"
-                                variant="danger"
-                                size="sm"
-                                onClick={() => {
-                                  setModalErrorMessage(null);
-                                  setExpensePendingDelete(expense);
-                                }}
-                              >
-                                Delete
-                              </Button>
-                            </div>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={expensePage >= expenseTotalPages}
+                          onClick={() =>
+                            setExpensePage((current) =>
+                              Math.min(expenseTotalPages, current + 1),
+                            )
+                          }
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </>
                   )}
                 </SectionCard>
               </div>

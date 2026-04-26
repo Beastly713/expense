@@ -124,8 +124,8 @@ function buildExpenseListQuery(params?: ListGroupExpensesParams): string {
     searchParams.set('search', params.search.trim());
   }
 
-  if (params?.includeDeleted != null) {
-    searchParams.set('includeDeleted', String(params.includeDeleted));
+  if (params?.includeDeleted === true) {
+    searchParams.set('includeDeleted', 'true');
   }
 
   const query = searchParams.toString();
