@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import type { SplitMethod } from '@splitwise/shared-types';
 import type { Model, UpdateQuery } from 'mongoose';
+import { Types } from 'mongoose';
+
 import { Expense, type ExpenseDocument } from './expense.schema';
 
 interface CreateExpenseRecord {
@@ -27,6 +29,19 @@ interface FindExpensePageParams {
   limit: number;
   search?: string;
   includeDeleted?: boolean;
+}
+
+export interface ExpenseSplitMethodTotal {
+  splitMethod: SplitMethod;
+  count: number;
+  totalAmountMinor: number;
+}
+
+export interface ExpenseTotalsSummary {
+  totalExpenseAmountMinor: number;
+  activeExpenseCount: number;
+  deletedExpenseCount: number;
+  expenseCountBySplitMethod: ExpenseSplitMethodTotal[];
 }
 
 function escapeRegex(value: string): string {
@@ -110,6 +125,94 @@ export class ExpensesRepository {
     return {
       items,
       total,
+    };
+  }
+
+  async getTotalsByGroupId(groupId: string): Promise<ExpenseTotalsSummary> {
+    const groupObjectId = new Types.ObjectId(groupId);
+
+    const [summary] = await this.expenseModel
+      .aggregate<{
+        totals: Array<{
+          totalExpenseAmountMinor: number;
+          activeExpenseCount: number;
+          deletedExpenseCount: number;
+        }>;
+        bySplitMethod: Array<{
+          _id: SplitMethod;
+          count: number;
+          totalAmountMinor: number;
+        }>;
+      }>([
+        {
+          $match: {
+            groupId: groupObjectId,
+          },
+        },
+        {
+          $facet: {
+            totals: [
+              {
+                $group: {
+                  _id: null,
+                  totalExpenseAmountMinor: {
+                    $sum: {
+                      $cond: [{ $eq: ['$isDeleted', false] }, '$amountMinor', 0],
+                    },
+                  },
+                  activeExpenseCount: {
+                    $sum: {
+                      $cond: [{ $eq: ['$isDeleted', false] }, 1, 0],
+                    },
+                  },
+                  deletedExpenseCount: {
+                    $sum: {
+                      $cond: [{ $eq: ['$isDeleted', true] }, 1, 0],
+                    },
+                  },
+                },
+              },
+            ],
+            bySplitMethod: [
+              {
+                $match: {
+                  isDeleted: false,
+                },
+              },
+              {
+                $group: {
+                  _id: '$splitMethod',
+                  count: {
+                    $sum: 1,
+                  },
+                  totalAmountMinor: {
+                    $sum: '$amountMinor',
+                  },
+                },
+              },
+              {
+                $sort: {
+                  _id: 1,
+                },
+              },
+            ],
+          },
+        },
+      ])
+      .exec();
+
+    const totals = summary?.totals[0];
+
+    return {
+      totalExpenseAmountMinor: totals?.totalExpenseAmountMinor ?? 0,
+      activeExpenseCount: totals?.activeExpenseCount ?? 0,
+      deletedExpenseCount: totals?.deletedExpenseCount ?? 0,
+      expenseCountBySplitMethod:
+        summary?.bySplitMethod.map((item) => ({
+          splitMethod: item._id,
+          count: item.count,
+          totalAmountMinor: item.totalAmountMinor,
+        })) ?? [],
     };
   }
 

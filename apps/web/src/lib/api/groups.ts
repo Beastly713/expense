@@ -95,6 +95,22 @@ export interface GroupDetailsResponse {
   expenseCount: number;
 }
 
+export interface GroupTotalsResponse {
+  totals: {
+    currency: string;
+    totalExpenseAmountMinor: number;
+    activeExpenseCount: number;
+    deletedExpenseCount: number;
+    settlementTotalMinor: number;
+    settlementCount: number;
+    expenseCountBySplitMethod: Array<{
+      splitMethod: 'equal' | 'exact' | 'percent' | 'shares';
+      count: number;
+      totalAmountMinor: number;
+    }>;
+  };
+}
+
 export interface UpdateGroupResponse {
   group: {
     id: string;
@@ -169,6 +185,13 @@ export function listGroupMembers(groupId: string, accessToken: string) {
 
 export function getGroupBalances(groupId: string, accessToken: string) {
   return apiRequest<GroupBalancesResponse>(`/groups/${groupId}/balances`, {
+    method: 'GET',
+    accessToken,
+  });
+}
+
+export function getGroupTotals(groupId: string, accessToken: string) {
+  return apiRequest<GroupTotalsResponse>(`/groups/${groupId}/totals`, {
     method: 'GET',
     accessToken,
   });

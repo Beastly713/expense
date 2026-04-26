@@ -315,6 +315,36 @@ export class GroupsService {
     };
   }
 
+    async getGroupTotals(groupId: string, currentUserId: string) {
+    const group = await this.groupsRepository.findById(groupId);
+
+    if (!group) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        message: 'Group not found.',
+      });
+    }
+
+    await this.assertActiveGroupMembership(groupId, currentUserId);
+
+    const [expenseTotals, settlementTotals] = await Promise.all([
+      this.expensesRepository.getTotalsByGroupId(groupId),
+      this.settlementsRepository.getTotalsByGroupId(groupId),
+    ]);
+
+    return {
+      totals: {
+        currency: group.defaultCurrency,
+        totalExpenseAmountMinor: expenseTotals.totalExpenseAmountMinor,
+        activeExpenseCount: expenseTotals.activeExpenseCount,
+        deletedExpenseCount: expenseTotals.deletedExpenseCount,
+        settlementTotalMinor: settlementTotals.settlementTotalMinor,
+        settlementCount: settlementTotals.settlementCount,
+        expenseCountBySplitMethod: expenseTotals.expenseCountBySplitMethod,
+      },
+    };
+  }
+
   async listGroupMembers(groupId: string, currentUserId: string) {
     const group = await this.groupsRepository.findById(groupId);
     if (!group) {

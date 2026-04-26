@@ -23,6 +23,7 @@ import {
   deleteExpense,
   getGroupBalances,
   getGroupDetails,
+  getGroupTotals,
   listGroupActivity,
   listGroupExpenses,
   listGroupInvites,
@@ -34,6 +35,7 @@ import {
   type GroupBalancesResponse,
   type GroupDetailsResponse,
   type GroupMember,
+  type GroupTotalsResponse,
   type InviteItem,
   type SettlementHistoryItem,
   type SimplifiedBalance,
@@ -292,6 +294,8 @@ export default function GroupDetailsPage() {
   const [groupDetails, setGroupDetails] =
     useState<GroupDetailsResponse | null>(null);
   const [balances, setBalances] = useState<GroupBalancesResponse | null>(null);
+  const [groupTotals, setGroupTotals] =
+    useState<GroupTotalsResponse | null>(null);
   const [expenses, setExpenses] = useState<ExpenseListItem[]>([]);
   const [expenseTotal, setExpenseTotal] = useState(0);
   const [expensePage, setExpensePage] = useState(1);
@@ -321,6 +325,7 @@ export default function GroupDetailsPage() {
     if (!accessToken || !groupId) {
       setGroupDetails(null);
       setBalances(null);
+      setGroupTotals(null);
       setExpenses([]);
       setExpenseTotal(0);
       setInvites([]);
@@ -337,6 +342,7 @@ export default function GroupDetailsPage() {
       const [
         nextGroupDetails,
         nextBalances,
+        nextTotals,
         nextExpenses,
         nextActivity,
         nextInvites,
@@ -344,6 +350,7 @@ export default function GroupDetailsPage() {
       ] = await Promise.all([
         getGroupDetails(groupId, accessToken),
         getGroupBalances(groupId, accessToken),
+        getGroupTotals(groupId, accessToken),
         listGroupExpenses(groupId, accessToken, {
           page: expensePage,
           limit: EXPENSE_PAGE_LIMIT,
@@ -357,6 +364,7 @@ export default function GroupDetailsPage() {
 
       setGroupDetails(nextGroupDetails);
       setBalances(nextBalances);
+      setGroupTotals(nextTotals);
       setExpenses(nextExpenses.items);
       setExpenseTotal(nextExpenses.pagination.total);
       setActivityItems(nextActivity.items);
@@ -718,6 +726,124 @@ export default function GroupDetailsPage() {
                 </CardContent>
               </Card>
             </section>
+
+            {groupTotals ? (
+              <section>
+                <Card>
+                  <CardContent className="p-5 sm:p-6">
+                    <SectionHeader
+                      title="Group totals"
+                      description="MongoDB aggregation summary using expense and settlement collections."
+                    />
+
+                    <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                      <div className="rounded-2xl bg-[var(--ledgerly-surface-soft)] p-4">
+                        <p className="text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ledgerly-muted)]">
+                          Active expense total
+                        </p>
+                        <MoneyAmount
+                          amountMinor={
+                            groupTotals.totals.totalExpenseAmountMinor
+                          }
+                          currency={groupTotals.totals.currency}
+                          tone="neutral"
+                          size="lg"
+                          signMode="never"
+                          className="mt-3 block"
+                        />
+                      </div>
+
+                      <div className="rounded-2xl bg-[var(--ledgerly-surface-soft)] p-4">
+                        <p className="text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ledgerly-muted)]">
+                          Active expenses
+                        </p>
+                        <p className="mt-3 text-3xl font-bold tracking-[-0.04em] text-[color:var(--ledgerly-text)]">
+                          {groupTotals.totals.activeExpenseCount}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl bg-[var(--ledgerly-surface-soft)] p-4">
+                        <p className="text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ledgerly-muted)]">
+                          Deleted expenses
+                        </p>
+                        <p className="mt-3 text-3xl font-bold tracking-[-0.04em] text-[color:var(--ledgerly-text)]">
+                          {groupTotals.totals.deletedExpenseCount}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl bg-[var(--ledgerly-surface-soft)] p-4">
+                        <p className="text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ledgerly-muted)]">
+                          Settlement total
+                        </p>
+                        <MoneyAmount
+                          amountMinor={groupTotals.totals.settlementTotalMinor}
+                          currency={groupTotals.totals.currency}
+                          tone="neutral"
+                          size="lg"
+                          signMode="never"
+                          className="mt-3 block"
+                        />
+                        <p className="mt-2 text-xs text-[color:var(--ledgerly-muted)]">
+                          {groupTotals.totals.settlementCount} settlement
+                          {groupTotals.totals.settlementCount === 1 ? '' : 's'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 rounded-2xl border border-[color:var(--ledgerly-border)] bg-white p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <h3 className="text-sm font-bold text-[color:var(--ledgerly-text)]">
+                            Expenses by split method
+                          </h3>
+                          <p className="mt-1 text-sm leading-6 text-[color:var(--ledgerly-muted)]">
+                            Computed with MongoDB $match, $group, $sum, and
+                            $sort aggregation stages.
+                          </p>
+                        </div>
+
+                        <Badge variant="purple">Aggregation</Badge>
+                      </div>
+
+                      {groupTotals.totals.expenseCountBySplitMethod.length === 0 ? (
+                        <p className="mt-4 text-sm text-[color:var(--ledgerly-muted)]">
+                          No active expenses to aggregate yet.
+                        </p>
+                      ) : (
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          {groupTotals.totals.expenseCountBySplitMethod.map(
+                            (item) => (
+                              <div
+                                key={item.splitMethod}
+                                className="rounded-2xl bg-[var(--ledgerly-surface-soft)] p-4"
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <Badge variant="brand">
+                                    {item.splitMethod}
+                                  </Badge>
+                                  <span className="text-sm font-bold text-[color:var(--ledgerly-text)]">
+                                    {item.count}
+                                  </span>
+                                </div>
+
+                                <MoneyAmount
+                                  amountMinor={item.totalAmountMinor}
+                                  currency={groupTotals.totals.currency}
+                                  tone="neutral"
+                                  size="md"
+                                  signMode="never"
+                                  className="mt-3 block"
+                                />
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </section>
+            ) : null}
 
             <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
               <div className="space-y-6">

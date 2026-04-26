@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import type { SettlementMethod } from '@splitwise/shared-types';
 import type { Model } from 'mongoose';
+import { Types } from 'mongoose';
+
 import {
   Settlement,
   type SettlementDocument,
@@ -17,6 +19,11 @@ interface CreateSettlementRecord {
   note?: string | null;
   createdByUserId: string;
   settledAt?: Date;
+}
+
+export interface SettlementTotalsSummary {
+  settlementTotalMinor: number;
+  settlementCount: number;
 }
 
 @Injectable()
@@ -65,6 +72,39 @@ export class SettlementsRepository {
     return {
       items,
       total,
+    };
+  }
+
+  async getTotalsByGroupId(groupId: string): Promise<SettlementTotalsSummary> {
+    const groupObjectId = new Types.ObjectId(groupId);
+
+    const [summary] = await this.settlementModel
+      .aggregate<{
+        settlementTotalMinor: number;
+        settlementCount: number;
+      }>([
+        {
+          $match: {
+            groupId: groupObjectId,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            settlementTotalMinor: {
+              $sum: '$amountMinor',
+            },
+            settlementCount: {
+              $sum: 1,
+            },
+          },
+        },
+      ])
+      .exec();
+
+    return {
+      settlementTotalMinor: summary?.settlementTotalMinor ?? 0,
+      settlementCount: summary?.settlementCount ?? 0,
     };
   }
 }

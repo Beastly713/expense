@@ -62,6 +62,14 @@ export class GroupsController {
     return this.groupsService.getGroupDetails(groupId, currentUser.userId);
   }
 
+    @Get(':groupId/totals')
+  getGroupTotals(
+    @Param('groupId') groupId: string,
+    @CurrentUser() currentUser: AuthenticatedRequestUser,
+  ) {
+    return this.groupsService.getGroupTotals(groupId, currentUser.userId);
+  }
+
   @Get(':groupId/members')
   listGroupMembers(
     @Param('groupId') groupId: string,
