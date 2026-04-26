@@ -6,3 +6,21 @@ Enable on Boot: sudo systemctl enable mongod
 pnpm dev:api
 pnpm dev:web
 pnpm test:all
+
+server start:
+sudo systemctl start mongod
+
+Check MongoDB is running:
+mongosh --eval 'db.runCommand({ ping: 1 })'
+
+Run the script:
+mongosh --file scripts/report-demo.mongodb.js
+
+Verify your normal project DB is untouched:
+mongosh
+show dbs
+ledgerly
+ledgerly_report_demo
+
+To delete it manually later:
+mongosh --eval 'db.getSiblingDB("ledgerly_report_demo").dropDatabase()'
