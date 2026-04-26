@@ -18,8 +18,10 @@ import {
 import {
   createGroupExpense,
   getGroupDetails,
+  listGroups,
   type ExpenseSplitMethod,
   type GroupDetailsResponse,
+  type GroupListItem,
 } from '@/lib/api';
 import { ApiError } from '@/lib/api/client';
 import { useAuth } from '@/lib/auth';
@@ -63,6 +65,15 @@ function buildGroupNavigationHref(
   }
 
   return `/groups/${groupId}`;
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
 }
 
 function FormSection({
@@ -116,6 +127,158 @@ function getSplitMethodDescription(method: ExpenseSplitMethod): string {
   }
 }
 
+function LedgerPicker({ ledgers }: { ledgers: GroupListItem[] }) {
+  const regularGroups = ledgers.filter((ledger) => ledger.type === 'group');
+  const directLedgers = ledgers.filter((ledger) => ledger.type === 'direct');
+
+  return (
+    <div className="space-y-6">
+      <section>
+        <Card variant="elevated">
+          <CardContent className="p-6">
+            <PageHeader
+              eyebrow="Add expense"
+              title="Where should this expense go?"
+              description="Choose a group or direct friend ledger first. Every Ledgerly expense belongs to a ledger so balances stay accurate."
+              actions={
+                <Link
+                  href="/dashboard"
+                  className="inline-flex h-11 items-center justify-center rounded-full border border-[color:var(--ledgerly-border)] bg-white px-4 text-sm font-semibold text-[color:var(--ledgerly-text)] transition hover:border-[color:var(--ledgerly-primary)] hover:bg-[var(--ledgerly-primary-soft)]"
+                >
+                  Back to dashboard
+                </Link>
+              }
+            />
+          </CardContent>
+        </Card>
+      </section>
+
+      {ledgers.length === 0 ? (
+        <EmptyState
+          title="No ledgers available"
+          description="Create a group or open a direct friend ledger before adding an expense."
+          action={
+            <Link
+              href="/dashboard"
+              className="inline-flex h-11 items-center justify-center rounded-full bg-[var(--ledgerly-primary)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--ledgerly-primary-dark)]"
+            >
+              Go to dashboard
+            </Link>
+          }
+        />
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <section>
+            <Card>
+              <CardContent className="p-5 sm:p-6">
+                <SectionHeader
+                  title="Groups"
+                  description="Trips, roommates, family plans, and shared contexts."
+                />
+
+                {regularGroups.length === 0 ? (
+                  <EmptyState
+                    className="mt-6"
+                    title="No groups yet"
+                    description="Create a group from the dashboard to add group expenses."
+                  />
+                ) : (
+                  <div className="mt-6 grid gap-3">
+                    {regularGroups.map((ledger) => (
+                      <Link
+                        key={ledger.id}
+                        href={`/expenses/new?groupId=${ledger.id}`}
+                        className="block"
+                      >
+                        <Card variant="interactive">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex min-w-0 items-center gap-3">
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--ledgerly-primary-soft)] text-sm font-black text-[color:var(--ledgerly-primary)]">
+                                  {getInitials(ledger.name) || 'G'}
+                                </div>
+
+                                <div className="min-w-0">
+                                  <h2 className="truncate text-base font-bold text-[color:var(--ledgerly-text)]">
+                                    {ledger.name}
+                                  </h2>
+                                  <p className="mt-1 text-sm text-[color:var(--ledgerly-muted)]">
+                                    {ledger.memberCount} member
+                                    {ledger.memberCount === 1 ? '' : 's'} ·{' '}
+                                    {ledger.defaultCurrency}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <Badge variant="neutral">Group</Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </section>
+
+          <section>
+            <Card>
+              <CardContent className="p-5 sm:p-6">
+                <SectionHeader
+                  title="Friends"
+                  description="One-to-one direct ledgers."
+                />
+
+                {directLedgers.length === 0 ? (
+                  <EmptyState
+                    className="mt-6"
+                    title="No direct ledgers yet"
+                    description="Open a friend ledger from the dashboard to add one-to-one expenses."
+                  />
+                ) : (
+                  <div className="mt-6 grid gap-3">
+                    {directLedgers.map((ledger) => (
+                      <Link
+                        key={ledger.id}
+                        href={`/expenses/new?groupId=${ledger.id}`}
+                        className="block"
+                      >
+                        <Card variant="interactive">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex min-w-0 items-center gap-3">
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--ledgerly-primary-soft)] text-sm font-black text-[color:var(--ledgerly-primary)]">
+                                  {getInitials(ledger.name) || 'F'}
+                                </div>
+
+                                <div className="min-w-0">
+                                  <h2 className="truncate text-base font-bold text-[color:var(--ledgerly-text)]">
+                                    {ledger.name}
+                                  </h2>
+                                  <p className="mt-1 text-sm text-[color:var(--ledgerly-muted)]">
+                                    Friend ledger · {ledger.defaultCurrency}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <Badge variant="brand">Friend</Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function NewExpensePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -125,6 +288,7 @@ export default function NewExpensePage() {
 
   const [groupDetails, setGroupDetails] =
     useState<GroupDetailsResponse | null>(null);
+  const [availableLedgers, setAvailableLedgers] = useState<GroupListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -144,9 +308,10 @@ export default function NewExpensePage() {
   >({});
 
   useEffect(() => {
-    async function loadGroup() {
-      if (!accessToken || !groupId) {
+    async function loadExpenseContext() {
+      if (!accessToken) {
         setGroupDetails(null);
+        setAvailableLedgers([]);
         setIsLoading(false);
         return;
       }
@@ -155,8 +320,16 @@ export default function NewExpensePage() {
         setIsLoading(true);
         setLoadError(null);
 
+        if (!groupId) {
+          const response = await listGroups(accessToken, { type: 'all' });
+          setGroupDetails(null);
+          setAvailableLedgers(response.groups);
+          return;
+        }
+
         const response = await getGroupDetails(groupId, accessToken);
         setGroupDetails(response);
+        setAvailableLedgers([]);
 
         const defaultMembers = response.members
           .filter((member) => member.status !== 'removed')
@@ -177,14 +350,14 @@ export default function NewExpensePage() {
         if (error instanceof ApiError) {
           setLoadError(error.message);
         } else {
-          setLoadError('Failed to load group for expense creation.');
+          setLoadError('Failed to load expense creation context.');
         }
       } finally {
         setIsLoading(false);
       }
     }
 
-    void loadGroup();
+    void loadExpenseContext();
   }, [accessToken, groupId, user?.id]);
 
   const selectableMembers = useMemo(() => {
@@ -352,6 +525,10 @@ export default function NewExpensePage() {
               </CardContent>
             </Card>
           </section>
+        ) : null}
+
+        {!isLoading && !loadError && !groupId ? (
+          <LedgerPicker ledgers={availableLedgers} />
         ) : null}
 
         {!isLoading && !loadError && groupDetails ? (
